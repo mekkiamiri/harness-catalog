@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Shared REFERENCE pre-push hook (harness repositories); each repository keeps a copy in .githooks/pre-push.
+# Shared REFERENCE pre-push hook (harness repositories). Single source: harness-catalog/tools/githooks/pre-push.
+# Each repository keeps a copy in .githooks/pre-push, refreshed with tools/sync-hooks.sh (do not edit copies).
 # Refuses the push when a forbidden term appears in: the files of the pushed state, lines added or removed in the
 # pushed history, commit messages, or author and committer identities. Also refuses probable secrets.
 # NO forbidden pattern is written in this file: the list comes from $FORBIDDEN_TERMS (cloud) or
