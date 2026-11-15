@@ -101,8 +101,14 @@ def main() -> None:
         store.commit()
 
         path = render.dashboard(cfg, store)
-        html = path.read_text(encoding="utf-8").replace(
-            "<h1>AI radar</h1>", '<h1>AI radar <small style="font-size:13px;color:var(--hot)">demo — fictional data</small></h1>')
+        banner = (
+            '<h1>AI radar <small style="font-size:13px;color:var(--hot)">demo — fictional data</small></h1>'
+            '<p class="meta" style="margin:6px 0 0">Open source · '
+            '<a href="https://github.com/mekkiamiri/harness-catalog/tree/main/plugins/ai-radar">source on GitHub</a> · '
+            'install in Claude Code: <code>/plugin marketplace add mekkiamiri/harness-catalog</code> then '
+            '<code>/plugin install ai-radar@harness-catalog</code></p>'
+        )
+        html = path.read_text(encoding="utf-8").replace("<h1>AI radar</h1>", banner)
         store.close()
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(html, encoding="utf-8")
