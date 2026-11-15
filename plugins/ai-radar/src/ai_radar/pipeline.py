@@ -12,7 +12,7 @@ except ImportError:  # Windows
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
-from . import collectors, events, render, scoring, trends
+from . import collectors, events, render, repos, scoring, trends
 from .config import Config
 from .store import Store
 
@@ -70,6 +70,12 @@ def _collect(cfg: Config, store: Store, sources: list[str] | None = None) -> dic
         report["sources"][name] = {"received": len(items), "new": new}
         report["new"] += new
         report["seen"] += len(items)
+    if not sources or "repos" in sources:
+        try:
+            report["repos"] = repos.enrich(cfg, store)
+        except Exception as e:
+            store.conn.rollback()
+            report["errors"]["repos"] = str(e)[:300]
     for item_id, score, signals in scoring.score_items(store.all_items()):
         store.set_score(item_id, score, signals)
     store.commit()

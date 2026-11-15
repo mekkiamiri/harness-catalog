@@ -59,3 +59,10 @@ class TestStore(unittest.TestCase):
         full = self.store.start_run(); self.store.end_run(full, {"partial": False})
         part = self.store.start_run(); self.store.end_run(part, {"partial": True})
         self.assertEqual(self.store.last_run()["report"], {"partial": False})
+
+    def test_contribution_signals_survive_a_new_collection(self):
+        it = {"id": "repo:a/b", "category": "tool", "title": "a/b", "url": "https://x", "source": "GitHub", "signals": {"stars": 1}}
+        self.store.upsert(it)
+        self.store.conn.execute("UPDATE items SET signals = ? WHERE id = 'repo:a/b'", ('{"stars": 1, "contrib_score": 42}',))
+        self.store.upsert(it | {"signals": {"stars": 2}})
+        self.assertEqual(self.store.get("repo:a/b")["signals"], {"stars": 2, "contrib_score": 42})

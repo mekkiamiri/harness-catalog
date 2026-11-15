@@ -25,6 +25,7 @@ def dashboard(cfg: Config, store: Store) -> Path:
         "categories": CATEGORIES,
         "items": items,
         "events": store.events(days_ahead=365),
+        "repos": repos_to_watch(store),
         "alerts": store.recent_notifications(days=7),
     }
     payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
@@ -32,6 +33,11 @@ def dashboard(cfg: Config, store: Store) -> Path:
     cfg.dashboard_path.parent.mkdir(parents=True, exist_ok=True)
     cfg.dashboard_path.write_text(html, encoding="utf-8")
     return cfg.dashboard_path
+
+
+def repos_to_watch(store: Store, limit: int = 30) -> list[dict]:
+    from .repos import to_watch
+    return to_watch(store, limit)
 
 
 def markdown_note(cfg: Config, store: Store, per_category: int = 10) -> Path:
@@ -147,17 +153,17 @@ function alerts() {
 
 function tabs() {
   const nav = document.getElementById("tabs");
-  const cats = { all: "All", trends: "Languages", ...DATA.categories, events: "Events & CFPs" };
+  const cats = { all: "All", trends: "Languages", repos: "Repos", ...DATA.categories, events: "Events & CFPs" };
   nav.innerHTML = "";
   for (const [k, v] of Object.entries(cats)) {
-    const n = k === "all" ? DATA.items.length : k === "events" ? DATA.events.length : k === "trends" ? "" : DATA.items.filter(i => i.category === k).length;
+    const n = k === "all" ? DATA.items.length : k === "events" ? DATA.events.length : k === "repos" ? (DATA.repos || []).length : k === "trends" ? "" : DATA.items.filter(i => i.category === k).length;
     const b = document.createElement("button");
     b.className = "tab"; b.textContent = n === "" ? v : `${v} (${n})`;
     b.setAttribute("aria-pressed", state.cat === k);
     b.onclick = () => { state.cat = k; tabs(); render(); };
     nav.appendChild(b);
   }
-  document.getElementById("filters").style.display = ["events", "trends"].includes(state.cat) ? "none" : "flex";
+  document.getElementById("filters").style.display = ["events", "trends", "repos"].includes(state.cat) ? "none" : "flex";
 }
 
 const CAT_COLOR = { tool: "#2f9e6e", model: "#7c5cd6", research: "#d08a1f", article: "#2f7bd3" };
@@ -234,8 +240,30 @@ function renderTrends(main) {
   main.innerHTML = html || '<p class="empty">No trend data yet.</p>';
 }
 
+function renderRepos(main) {
+  const list = DATA.repos || [];
+  if (!list.length) { main.innerHTML = '<p class="empty">No repository analysed yet (runs after the next collection).</p>'; return; }
+  main.innerHTML = '<p class="meta wide">Repositories worth watching or contributing to, best first. Score: growth, newsletter mentions, entry tickets, organization backing, activity, match with your focus.</p>' +
+    list.map(i => {
+      const s = i.signals, c = s.contrib || {}, why = [];
+      if ((s.mentioned_by || []).length) why.push(`<span class="tag res">in ${esc(s.mentioned_by.join(", "))}</span>`);
+      if (s.stars_per_day) why.push(`<span class="tag">★ ${s.stars} · ${s.stars_per_day}/day</span>`);
+      if (c.good_first_issues) why.push(`<span class="tag new">${c.good_first_issues} good first issues</span>`);
+      if (c.help_wanted) why.push(`<span class="tag">${c.help_wanted} help wanted</span>`);
+      if (c.org_backed) why.push('<span class="tag">organization</span>');
+      if (c.days_since_push != null) why.push(`<span class="tag">pushed ${c.days_since_push === 0 ? "today" : c.days_since_push + " d ago"}</span>`);
+      (c.focus_match || []).forEach(f => why.push(`<span class="tag new">${esc(f)}</span>`));
+      if (s.language) why.push(`<span class="tag">${esc(s.language)}</span>`);
+      return `<article><div class="card-top"><span class="chip"><span class="dot" style="background:#2f9e6e"></span>Repository</span><span>${ago(i.first_seen)}</span></div>
+        <h2><a href="${esc(safeUrl(i.url))}" target="_blank" rel="noopener">${esc(i.title)}</a></h2>
+        ${i.description ? `<p class="summary">${esc(i.description)}</p>` : ""}
+        <div class="card-foot"><div class="tags">${why.join("")}</div><span class="score" title="contribution score">${Math.round(s.contrib_score || 0)}</span></div></article>`;
+    }).join("");
+}
+
 function render() {
   const main = document.getElementById("list");
+  if (state.cat === "repos") return renderRepos(main);
   if (state.cat === "events") return renderEvents(main);
   if (state.cat === "trends") return renderTrends(main);
   const q = state.q.toLowerCase();

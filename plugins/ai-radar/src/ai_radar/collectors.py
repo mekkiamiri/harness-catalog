@@ -289,6 +289,12 @@ def rss_feeds(cfg: Config) -> list[dict]:
             if keywords and not _matches(f"{title} {desc}", keywords):
                 continue
             points = re.search(r"Points:\s*(\d+)", desc or "")
+            encoded = _txt(e, "{http://purl.org/rss/1.0/modules/content/}encoded")
+            from .repos import github_repos_in
+            repos = github_repos_in(f"{link} {desc} {encoded}")
+            signals = {"points": int(points.group(1))} if points else {}
+            if repos:
+                signals["github_repos"] = repos
             items.append(
                 {
                     "id": f"article:{link}",
@@ -298,7 +304,7 @@ def rss_feeds(cfg: Config) -> list[dict]:
                     "source": name,
                     "description": clean(desc),
                     "published_at": dt.isoformat(timespec="seconds") if dt else None,
-                    "signals": {"points": int(points.group(1))} if points else {},
+                    "signals": signals,
                 }
             )
     if errors and not items:

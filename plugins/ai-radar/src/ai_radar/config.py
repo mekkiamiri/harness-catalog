@@ -51,6 +51,10 @@ github_min_stars = 50
 # Notifications: "auto" (macOS notification center when available) or "none".
 notify = "auto"
 
+[repos]
+# Topics you want to contribute to: matching repos get a bonus in the Repos tab.
+# focus = ["java", "spring", "mcp", "agents"]
+
 [phone]
 # Push to your phone with ntfy (free, open source: https://ntfy.sh, iOS and Android apps).
 # Pick a long random topic name (anyone who knows it can read it) and subscribe to it in the app.
@@ -112,6 +116,7 @@ class Config:
     watchlist: str = ""
     ntfy_topic: str = ""
     ntfy_server: str = "https://ntfy.sh"
+    repos_focus: list[str] = field(default_factory=list)
     events_enabled: bool = False
     meetup_enabled: bool = False
 
@@ -157,6 +162,7 @@ def load_config() -> Config:
     cfg.github_topics = list(data.get("github_topics", cfg.github_topics))
     cfg.github_keywords = list(data.get("github_keywords", cfg.github_keywords))
     cfg.notify = os.environ.get("AI_RADAR_NOTIFY") or data.get("notify", cfg.notify)
+    cfg.repos_focus = list(data.get("repos", {}).get("focus", []))
     phone = data.get("phone", {})
     cfg.ntfy_topic = os.environ.get("AI_RADAR_NTFY_TOPIC") or phone.get("ntfy_topic", "")
     cfg.ntfy_server = phone.get("ntfy_server", cfg.ntfy_server).rstrip("/")

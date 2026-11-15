@@ -8,5 +8,6 @@ First release.
 - Opt-in conferences and CFPs (developers.events, cfp.dev with opening dates), opt-in online meetups (Meetup), watchlist, de-duplicated alerts (opening, 30/14/7/2 days, date moved), macOS notifications, `cfp.json`.
 - Optional phone push through ntfy (daily "radar ready" + alerts).
 - Language and framework trends (new AI repos, PYPL).
+- Repos tab: repositories worth watching or contributing to (newsletter mentions, growth, good-first-issue tickets, organization backing, activity, focus topics).
 - Self-contained dashboard (30 days, events, languages), daily Markdown note.
 - MCP server (14 tools, one collection at a time, safe concurrent access); Claude Code plugin with 4 skills (`morning` guided session, `lab`, `profile`, `schedule`) and a session-start catch-up.

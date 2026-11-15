@@ -66,6 +66,19 @@ def main() -> None:
             ("Example Newsletter", "Inspecting MCP traffic with mcp-lens"),
         ]):
             item(f"article:{i}", "article", title, src, "", 1, points=random.randint(60, 300))
+        # Fictional contribution signals for the Repos tab.
+        from ai_radar.repos import contrib_score
+        for rid, contrib, mentioned in [
+            ("repo:demo/orbit-agent", {"good_first_issues": 7, "help_wanted": 3, "org_backed": True, "days_since_push": 0,
+                                       "focus_match": ["agents", "mcp"]}, ["Example Newsletter", "Example Blog"]),
+            ("repo:demo/mcp-lens", {"good_first_issues": 2, "help_wanted": 0, "org_backed": False, "days_since_push": 3,
+                                    "focus_match": ["mcp"]}, ["Example Newsletter"]),
+            ("repo:demo/jvm-agents", {"good_first_issues": 4, "help_wanted": 1, "org_backed": True, "days_since_push": 1,
+                                      "focus_match": ["java", "spring"]}, []),
+        ]:
+            sig = store.get(rid)["signals"] | {"contrib": contrib, "mentioned_by": mentioned}
+            sig["contrib_score"] = contrib_score(sig)
+            store.conn.execute("UPDATE items SET signals = ? WHERE id = ?", (json.dumps(sig), rid))
         store.commit()
         for item_id, score, signals in scoring.score_items(store.all_items()):
             store.set_score(item_id, score, signals)

@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS runs (
 """
 
 ITEM_FIELDS = {"status", "brief", "lab", "relevant"}
+PRESERVED_SIGNALS = ("contrib", "contrib_score", "mentioned_by")
 
 
 def now() -> datetime:
@@ -107,8 +108,14 @@ class Store:
     def upsert(self, item: dict) -> bool:
         """Insert or update an item. Returns True when it is new."""
         t = iso(now())
-        exists = self.conn.execute("SELECT 1 FROM items WHERE id = ?", (item["id"],)).fetchone()
-        signals = json.dumps(item.get("signals", {}), ensure_ascii=False)
+        exists = self.conn.execute("SELECT signals FROM items WHERE id = ?", (item["id"],)).fetchone()
+        new_signals = dict(item.get("signals", {}))
+        if exists is not None:  # keep signals computed by later steps (contribution analysis, newsletter mentions)
+            old = json.loads(exists["signals"] or "{}")
+            for key in PRESERVED_SIGNALS:
+                if key in old and key not in new_signals:
+                    new_signals[key] = old[key]
+        signals = json.dumps(new_signals, ensure_ascii=False)
         if exists is None:
             self.conn.execute(
                 "INSERT INTO items (id, category, title, url, source, description, published_at,"

@@ -72,3 +72,17 @@ class TestModelDuplicates(unittest.TestCase):
         signals = {i: s for i, _, s in scoring.score_items(items, NOW)}
         self.assertEqual(signals["model:acme/nova-2"]["resonance"], [])
         self.assertEqual(signals["model-hf:acme/nova-2"]["resonance"], [])
+
+
+class TestRepos(unittest.TestCase):
+    def test_github_links_are_extracted_from_newsletters(self):
+        from ai_radar.repos import github_repos_in
+        text = '<a href="https://github.com/acme/orbit-agent">x</a> see github.com/acme/orbit-agent.git and https://github.com/features/copilot'
+        self.assertEqual(github_repos_in(text), ["acme/orbit-agent"])
+
+    def test_contribution_score_rewards_entry_tickets_and_focus(self):
+        from ai_radar.repos import contrib_score
+        base = {"stars_per_day": 10, "contrib": {"good_first_issues": 0, "days_since_push": 2}}
+        better = {"stars_per_day": 10, "mentioned_by": ["Latent Space"],
+                  "contrib": {"good_first_issues": 6, "org_backed": True, "days_since_push": 2, "focus_match": ["mcp"]}}
+        self.assertGreater(contrib_score(better), contrib_score(base) + 50)

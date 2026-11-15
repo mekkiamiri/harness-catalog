@@ -34,6 +34,7 @@ New agents, the model everyone suddenly talks about, the research topic that tak
 | **Models** | A new id on an aggregator, a trending model | OpenRouter, Hugging Face |
 | **Research** | A paper collecting votes | Hugging Face Daily Papers |
 | **Articles** | Reference newsletters and blogs | Latent Space, Interconnects, AINews, TLDR AI, Simon Willison, Hacker News |
+| **Repos to contribute to** | Repos mentioned by newsletters, growing fast, with good-first-issue tickets and an organization behind them, matching your `[repos] focus` | GitHub API, newsletters |
 | **Languages & frameworks** | Languages and frameworks of new AI repos (weekly change); tutorial-search share | GitHub, PYPL |
 | **Conferences, meetups, CFPs** (opt-in) | CFP opening, closing in 30/14/7/2 days, date moved; new online events; meetups looking for speakers | developers.events, cfp.dev, Meetup |
 | **Everything** | **Resonance**: the same name mentioned by several independent sources within days | Cross-source |

@@ -10,7 +10,7 @@ from contextlib import contextmanager
 
 from mcp.server.mcpserver import MCPServer
 
-from . import pipeline, trends
+from . import pipeline, repos, trends
 from .config import load_config
 from .store import Store
 
@@ -109,6 +109,17 @@ def alerts(days: int = 7) -> list[dict]:
     """Alerts raised recently (CFP opening or closing soon, date changes, new online events)."""
     with opened() as (cfg, store):
         return store.recent_notifications(days=days)
+
+
+@mcp.tool()
+def repos_to_watch(limit: int = 10) -> list[dict]:
+    """Repositories worth watching or contributing to, best first, with the reasons: newsletter mentions,
+    stars per day, good-first-issue / help-wanted tickets, organization backing, activity, focus match."""
+    with opened() as (cfg, store):
+        return [{k: it[k] for k in ("id", "title", "url", "description")} | {
+            "contrib_score": it["signals"].get("contrib_score"), "contrib": it["signals"].get("contrib"),
+            "mentioned_by": it["signals"].get("mentioned_by", []), "stars_per_day": it["signals"].get("stars_per_day")}
+            for it in repos.to_watch(store, limit)]
 
 
 @mcp.tool()
