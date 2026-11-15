@@ -1,0 +1,14 @@
+{
+  "name": "harness-catalog",
+  "owner": { "name": "Mekki Amiri", "url": "https://github.com/mekkiamiri" },
+  "metadata": {
+    "description": "Open-source Claude Code harnesses: plugins with skills, MCP servers and hooks."
+  },
+  "plugins": [
+    {
+      "name": "ai-radar",
+      "source": "./plugins/ai-radar",
+      "description": "Detects new AI tools, models, papers, conferences and CFPs every morning, ranks them, and guides you through them with dense summaries and labs."
+    }
+  ]
+}
