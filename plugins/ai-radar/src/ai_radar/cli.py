@@ -29,6 +29,7 @@ def main(argv: list[str] | None = None) -> int:
     e = sub.add_parser("cfps", help="print CFPs closing soon")
     e.add_argument("--days", type=int, default=60)
     sub.add_parser("status", help="last run and paths")
+    sub.add_parser("sync", help="sync your state with your private repository (HARNESS_MEMORY_HOME)")
     sub.add_parser("mcp", help="start the MCP server (stdio)")
     a = p.parse_args(argv)
 
@@ -76,6 +77,9 @@ def main(argv: list[str] | None = None) -> int:
                 opens = f" (opens {ev['cfp_open'][:10]})" if ev.get("cfp_open") else ""
                 print(f"{star} {ev['cfp_close']}  {ev['name'][:50]:50} {ev['cfp_url']}{opens}")
             print("Dates are leads from community agendas: verify on the official site.")
+        elif a.cmd == "sync":
+            from . import sync
+            print(json.dumps(sync.sync(cfg, store), ensure_ascii=False, indent=2))
         elif a.cmd == "status":
             h = pipeline.hours_since_last_run(store)
             print(json.dumps({

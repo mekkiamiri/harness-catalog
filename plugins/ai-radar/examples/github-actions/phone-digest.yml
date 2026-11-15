@@ -1,0 +1,44 @@
+# Example: put it in YOUR private memory repository as .github/workflows/phone-digest.yml
+# and add the NTFY_TOPIC secret (your ntfy topic).
+# Sends the day's digest of each harness to the phone (ntfy) when a new <harness>/daily/*.json is pushed
+# Nothing is sent from the work computer: it only pushes the digest; GitHub sends the notification.
+# Computer off = no new digest = no notification.
+name: phone-digest
+on:
+  push:
+    paths: ["ai-radar/daily/*.json"]
+  workflow_dispatch:  # manual test: sends the latest digest
+permissions:
+  contents: read
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Send new digests
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          # Tolerate a pasted value with spaces/newlines or a full https://ntfy.sh/<topic> URL.
+          TOPIC=$(printf '%s' "$NTFY_TOPIC" | tr -d '[:space:]' | sed 's#.*/##')
+          [ -n "$TOPIC" ] || { echo "NTFY_TOPIC secret not set"; exit 0; }
+          echo "topic length: ${#TOPIC}"
+          if [ "${{ github.event_name }}" = "push" ] && git cat-file -e "$BEFORE" 2>/dev/null; then
+            files=$(git diff --name-only --diff-filter=A "$BEFORE" "$AFTER" -- 'ai-radar/daily/*.json')
+          else
+            files=$(git ls-files 'ai-radar/daily/*.json' | sort | tail -1)
+          fi
+          for f in $files; do
+            # Short notification; tapping it opens the full page of the day in this private repository.
+            title=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["title"])' "$f")
+            python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print("\n".join(d.get("lines", [])) or "Nothing new today.")' "$f" > /tmp/body.txt
+            page=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("page",""))' "$f")
+            click="https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/$page"
+            tags="satellite"
+            curl -s -o /dev/null -w "ntfy %{http_code}\n" -H "Title: $title" -H "Tags: $tags" -H "Click: $click" \
+              --data-binary @/tmp/body.txt "https://ntfy.sh/$TOPIC"
+          done

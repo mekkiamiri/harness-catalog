@@ -16,6 +16,7 @@ The MCP server `ai-radar` collects and ranks without any LLM. You judge, summari
 
 ## 0. Prepare (silently)
 
+0. `sync` (no-op when the user has no private memory repository): brings the state from their other computer.
 1. `status`. If `running` is true, wait about a minute and call `status` again. If `hours_since_last_run` is empty or above 20, call `run_collection`.
 2. `profile`. If empty, assume "advanced in AI, unknown stack" and suggest `/ai-radar:profile` at the end. Use the session language(s) the profile asks for (default: the user's language in this conversation). When the profile lists **two languages** (e.g. `French + English`), write every brief and summary in both: the first language, then the same content in the second, under a short `---` separator.
 3. **Triage**: `latest(days=2, limit=60, without_brief=true)`. Mark off-topic or suspicious items `ignored` (not about AI, agents, LLMs, MCP, skills, AI research or the user's stack; empty repos, clones, "crack", "free premium", crypto).
@@ -29,7 +30,7 @@ The MCP server `ai-radar` collects and ranks without any LLM. You judge, summari
    ```
    Never invent. If you could not read the source, write "unverified" in the brief and pass `relevant=false`. Pass `relevant=true` only for items you read and judge worth the user's attention.
 5. `alerts(days=1)`, `language_trends`, and if events are enabled: `upcoming_cfps(days=30, watched_only=true)`, `events(online_only=true, days_ahead=7)`.
-6. `rebuild_dashboard`.
+6. `rebuild_dashboard`, then `sync` again (pushes the day's state and digest; the user's private repository can then notify their phone).
 
 In `scheduled` mode, stop here and print a 10-line digest: top 3 items with why, alerts, CFPs closing within 30 days, one line of language trend, dashboard path.
 
@@ -45,7 +46,7 @@ Keep it short: a session should fit in **15 minutes**. Use AskUserQuestion for e
    - **one recall question** (active recall makes summaries stick): ask it, let them answer, correct briefly;
    - then one line: "To go deeper: <link or doc>" — only now.
 4. **Next step** — offer the lab (`/ai-radar:lab`) for the topic that deserves practice, or the next topic.
-5. **Close** — a 3-line recap of what they learned today, and mark covered items `read`.
+5. **Close** — a 3-line recap of what they learned today, mark covered items `read`, then call `sync`.
 
 ## 2. Weekly extras (Mondays, or when asked)
 

@@ -116,6 +116,15 @@ Star farms (the same repo published by dozens of accounts, often malicious lures
 
 **Conferences and CFPs** are **off by default** (`[events] enabled = true` to turn them on; [`examples/config-fr-jvm.toml`](examples/config-fr-jvm.toml) is a ready-made example). Conferences are kept when online or in your countries and matching your topics. Push notifications are reserved for your **watchlist** (any text file listing the conferences you target, read only) and the conferences you name in `cfp_notify_keywords`; everything else stays on the dashboard. CFP dates are **leads** from community agendas and public CFP APIs: every alert says "verify on the official site".
 
+## Two computers, and your phone (optional)
+
+Point `[sync] memory_home` (or `HARNESS_MEMORY_HOME`) to a local clone of **your own private repository**. `ai-radar sync` (also run by the morning session and the session-start hook) then:
+
+- pulls, merges and pushes your state: statuses, briefs, labs, profile, alerts already raised (never raised twice), weekly digest;
+- writes the day's page (`ai-radar/daily/YYYY-MM-DD.md`) and a small JSON for notifications.
+
+A workflow in your private repository can then send a short push to your phone that opens the day's page, so nothing is sent from your computer itself, and a computer that stays off sends nothing. Example workflow: [`examples/github-actions/phone-digest.yml`](examples/github-actions/phone-digest.yml). The radar database stays local; nothing is ever pushed to this repository or anyone else's.
+
 ## Platforms
 
 | | Status |
@@ -176,6 +185,7 @@ Everything is optional. `~/.ai-radar/config.toml` is created on first run, with 
 | `AI_RADAR_EXPORT_MARKDOWN` | Folder for a daily Markdown note |
 | `AI_RADAR_NOTIFY` | `auto` (default) or `none` |
 | `AI_RADAR_NO_CATCHUP` | Set to `1` to disable the session-start catch-up run |
+| `HARNESS_MEMORY_HOME` | Local clone of your private repository for `ai-radar sync` (off when unset) |
 | `AI_RADAR_NTFY_TOPIC` | ntfy topic for phone pushes (overrides `[phone] ntfy_topic`) |
 
 ### Files other tools can read

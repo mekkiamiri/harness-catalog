@@ -55,6 +55,11 @@ notify = "auto"
 # Topics you want to contribute to: matching repos get a bonus in the Repos tab.
 # focus = ["java", "spring", "mcp", "agents"]
 
+[sync]
+# Optional: a local clone of YOUR OWN private git repository. ai-radar then syncs your state there
+# (statuses, briefs, profile, alerts already raised, weekly digest) with `ai-radar sync`. Off when empty.
+# memory_home = "~/harness-memory"
+
 [phone]
 # Push to your phone with ntfy (free, open source: https://ntfy.sh, iOS and Android apps).
 # Pick a long random topic name (anyone who knows it can read it) and subscribe to it in the app.
@@ -117,6 +122,7 @@ class Config:
     ntfy_topic: str = ""
     ntfy_server: str = "https://ntfy.sh"
     repos_focus: list[str] = field(default_factory=list)
+    memory_home: str = ""
     events_enabled: bool = False
     meetup_enabled: bool = False
 
@@ -163,6 +169,7 @@ def load_config() -> Config:
     cfg.github_keywords = list(data.get("github_keywords", cfg.github_keywords))
     cfg.notify = os.environ.get("AI_RADAR_NOTIFY") or data.get("notify", cfg.notify)
     cfg.repos_focus = list(data.get("repos", {}).get("focus", []))
+    cfg.memory_home = os.environ.get("HARNESS_MEMORY_HOME") or data.get("sync", {}).get("memory_home", "")
     phone = data.get("phone", {})
     cfg.ntfy_topic = os.environ.get("AI_RADAR_NTFY_TOPIC") or phone.get("ntfy_topic", "")
     cfg.ntfy_server = phone.get("ntfy_server", cfg.ntfy_server).rstrip("/")

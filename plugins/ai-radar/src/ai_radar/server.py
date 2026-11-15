@@ -157,6 +157,15 @@ def run_collection() -> dict:
 
 
 @mcp.tool()
+def sync() -> dict:
+    """Sync the user's state with their own private repository (when HARNESS_MEMORY_HOME is set):
+    pull, merge statuses/briefs/profile/alerts, then push. Call it at the start and end of a session."""
+    from . import sync as sync_module
+    with opened() as (cfg, store):
+        return sync_module.sync(cfg, store)
+
+
+@mcp.tool()
 def rebuild_dashboard() -> dict:
     """Rebuild the dashboard and exports after saving briefs or labs."""
     with opened() as (cfg, store):

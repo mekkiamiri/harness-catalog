@@ -162,8 +162,13 @@ def publish(cfg: Config, store: Store) -> dict:
 def run(cfg: Config, store: Store) -> dict:
     report = collect(cfg, store)  # raises AlreadyRunning if another run holds the lock
     report["outputs"] = publish(cfg, store)
-    # The phone digest only after a full run whose dashboard is published.
-    report["phone"] = _phone_digest(cfg, store, report.get("pushed_alerts", []))
+    # The phone digest only after a full run whose dashboard is published. With a private memory repository,
+    # its workflow sends it (nothing leaves this computer, and no double notification); otherwise direct ntfy.
+    from . import sync
+    if sync.memory_dir(cfg):
+        report["daily_digest"] = str(sync.write_daily_digest(cfg, store, report.get("pushed_alerts", [])))
+    else:
+        report["phone"] = _phone_digest(cfg, store, report.get("pushed_alerts", []))
     store.commit()
     return report
 

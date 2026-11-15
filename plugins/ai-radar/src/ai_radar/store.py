@@ -89,6 +89,10 @@ class Store:
         cols = {r["name"] for r in self.conn.execute("PRAGMA table_info(items)")}
         if "relevant" not in cols:
             self.conn.execute("ALTER TABLE items ADD COLUMN relevant INTEGER DEFAULT 0")
+        if "state_updated" not in cols:
+            self.conn.execute("ALTER TABLE items ADD COLUMN state_updated TEXT DEFAULT ''")
+        if "state_times" not in cols:  # per-field change times, for a field-by-field sync merge
+            self.conn.execute("ALTER TABLE items ADD COLUMN state_times TEXT DEFAULT '{}'")
         self.conn.commit()
 
     def close(self) -> None:
@@ -139,7 +143,12 @@ class Store:
     def set_field(self, item_id: str, field: str, value) -> bool:
         if field not in ITEM_FIELDS:
             raise ValueError(f"field cannot be changed: {field}")
-        cur = self.conn.execute(f"UPDATE items SET {field} = ? WHERE id = ?", (value, item_id))
+        t = iso(now())
+        row = self.conn.execute("SELECT state_times FROM items WHERE id = ?", (item_id,)).fetchone()
+        times = json.loads((row["state_times"] if row else None) or "{}")
+        times[field] = t
+        cur = self.conn.execute(f"UPDATE items SET {field} = ?, state_updated = ?, state_times = ? WHERE id = ?",
+                                (value, t, json.dumps(times, sort_keys=True), item_id))
         self.conn.commit()
         return cur.rowcount > 0
 
