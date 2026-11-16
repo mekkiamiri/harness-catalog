@@ -17,6 +17,8 @@ def main(argv: list[str] | None = None) -> int:
     sub = p.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run", help="collect + score + alerts + dashboard")
     r.add_argument("--if-older-than", type=float, metavar="HOURS", help="do nothing if the last run is more recent")
+    r.add_argument("--deliver", action="store_true",
+                   help="also write the digest for the next morning and sync it to your private repository")
     c = sub.add_parser("collect", help="collect and score only")
     c.add_argument("--sources", nargs="*", help="limit to some sources (github, openrouter, rss, meetup, cfp_dev...)")
     sub.add_parser("dashboard", help="rebuild the dashboard and exports")
@@ -48,10 +50,12 @@ def main(argv: list[str] | None = None) -> int:
                     print("A collection is already running: nothing to do.")
                     return 0
                 if h is not None and h < a.if_older_than:
-                    print(f"Last full run {h:.1f} h ago: nothing to do.")
+                    print(f"Last full run {h:.1f} h ago: collection skipped.")
+                    if a.deliver:  # the digest and its sync still happen
+                        print(json.dumps(pipeline.deliver_digest(cfg, store), ensure_ascii=False, indent=2))
                     return 0
             try:
-                _print_report(pipeline.run(cfg, store))
+                _print_report(pipeline.run(cfg, store, deliver=a.deliver))
             except pipeline.AlreadyRunning:
                 print("A collection is already running: nothing to do.")
         elif a.cmd == "collect":

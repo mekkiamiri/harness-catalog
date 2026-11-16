@@ -121,7 +121,7 @@ Star farms (the same repo published by dozens of accounts, often malicious lures
 Point `[sync] memory_home` (or `HARNESS_MEMORY_HOME`) to a local clone of **your own private repository**. `ai-radar sync` (also run by the morning session and the session-start hook) then:
 
 - pulls, merges and pushes your state: statuses, briefs, labs, profile, alerts already raised (never raised twice), weekly digest;
-- writes the day's page (`ai-radar/daily/YYYY-MM-DD.md`) and a small JSON for notifications.
+- with `ai-radar run --deliver` (e.g. scheduled at 16:30), writes the page of the last 24 hours for the next morning (`ai-radar/daily/YYYY-MM-DD.md`) and a small JSON for notifications, then syncs.
 
 A workflow in your private repository can then send a short push to your phone that opens the day's page, so nothing is sent from your computer itself, and a computer that stays off sends nothing. Example workflow: [`examples/github-actions/phone-digest.yml`](examples/github-actions/phone-digest.yml). The radar database stays local; nothing is ever pushed to this repository or anyone else's.
 

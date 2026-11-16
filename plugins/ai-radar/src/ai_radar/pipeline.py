@@ -159,18 +159,31 @@ def publish(cfg: Config, store: Store) -> dict:
     return out
 
 
-def run(cfg: Config, store: Store) -> dict:
+def run(cfg: Config, store: Store, deliver: bool = False) -> dict:
     report = collect(cfg, store)  # raises AlreadyRunning if another run holds the lock
     report["outputs"] = publish(cfg, store)
     # The phone digest only after a full run whose dashboard is published. With a private memory repository,
     # its workflow sends it (nothing leaves this computer, and no double notification); otherwise direct ntfy.
+    # deliver=True (e.g. the 16:30 run): write the digest of the last 24 hours (so it also covers the
+    # morning run), dated for the next morning, and sync it; the private repository's workflow sends it at 8:00.
     from . import sync
     if sync.memory_dir(cfg):
-        report["daily_digest"] = str(sync.write_daily_digest(cfg, store, report.get("pushed_alerts", [])))
+        if deliver:
+            report |= deliver_digest(cfg, store, report.get("pushed_alerts", []))
     else:
         report["phone"] = _phone_digest(cfg, store, report.get("pushed_alerts", []))
     store.commit()
     return report
+
+
+def deliver_digest(cfg: Config, store: Store, pushed: list[str] | None = None) -> dict:
+    """Write the digest for the next morning and sync it. Never raises: the collection already succeeded."""
+    from . import sync
+    try:
+        path = sync.write_daily_digest(cfg, store, pushed or [])
+        return {"daily_digest": str(path), "sync": sync.sync(cfg, store)}
+    except Exception as e:
+        return {"deliver_error": str(e)[:300]}
 
 
 def hours_since_last_run(store: Store) -> float | None:

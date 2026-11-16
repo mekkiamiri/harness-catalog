@@ -123,6 +123,14 @@ def repos_to_watch(limit: int = 10) -> list[dict]:
 
 
 @mcp.tool()
+def proposals(limit: int = 3) -> list[dict]:
+    """Proactive picks to offer the user unasked: fast-growing recent AI repos matching their focus topics
+    or mentioned by several sources (same list as the "Proposals for you" section of the daily page)."""
+    with opened() as (cfg, store):
+        return repos.proposals(cfg, store, limit)
+
+
+@mcp.tool()
 def language_trends() -> dict:
     """Language and framework trends: star-weighted languages of new AI repos (this week vs last week),
     frameworks used by new AI repos, and PYPL tutorial-search shares with their 12-month change."""

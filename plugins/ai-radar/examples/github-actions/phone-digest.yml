@@ -1,12 +1,13 @@
-# Example: put it in YOUR private memory repository as .github/workflows/phone-digest.yml
-# and add the NTFY_TOPIC secret (your ntfy topic).
-# Sends the day's digest of each harness to the phone (ntfy) when a new <harness>/daily/*.json is pushed
+# Example: put it in YOUR private memory repository as .github/workflows/phone-digest.yml, add the
+# NTFY_TOPIC secret, and schedule `ai-radar run --deliver` at 16:30 on your computer.
 # Nothing is sent from the work computer: it only pushes the digest; GitHub sends the notification.
 # Computer off = no new digest = no notification.
 name: phone-digest
+# ai-radar: the 16:30 run pushes tomorrow's digest; it is sent at 8:00 (Paris) the next morning.
 on:
-  push:
-    paths: ["ai-radar/daily/*.json"]
+  schedule:
+    - cron: "0 6 * * *"   # 08:00 Paris in summer (UTC+2)
+    - cron: "0 7 * * *"   # 08:00 Paris in winter (UTC+1)
   workflow_dispatch:  # manual test: sends the latest digest
 permissions:
   contents: read
@@ -27,10 +28,15 @@ jobs:
           TOPIC=$(printf '%s' "$NTFY_TOPIC" | tr -d '[:space:]' | sed 's#.*/##')
           [ -n "$TOPIC" ] || { echo "NTFY_TOPIC secret not set"; exit 0; }
           echo "topic length: ${#TOPIC}"
-          if [ "${{ github.event_name }}" = "push" ] && git cat-file -e "$BEFORE" 2>/dev/null; then
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            # only the run that falls at 08:00 in Paris; computer off at 16:30 = no file = nothing sent
+            [ "$(TZ=Europe/Paris date +%H)" = "08" ] || { echo "not 08:00 in Paris"; exit 0; }
+            f="ai-radar/daily/$(TZ=Europe/Paris date +%F).json"
+            files=$( [ -f "$f" ] && echo "$f" || true )
+          elif [ "${{ github.event_name }}" = "push" ] && git cat-file -e "$BEFORE" 2>/dev/null; then
             files=$(git diff --name-only --diff-filter=A "$BEFORE" "$AFTER" -- 'ai-radar/daily/*.json')
           else
-            files=$(git ls-files 'ai-radar/daily/*.json' | sort | tail -1)
+            files=$( (git ls-files 'ai-radar/daily/*.json' | sort | tail -1; git ls-files | sort | tail -1) )
           fi
           for f in $files; do
             # Short notification; tapping it opens the full page of the day in this private repository.

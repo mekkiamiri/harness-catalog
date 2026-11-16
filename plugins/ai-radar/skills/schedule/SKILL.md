@@ -34,6 +34,10 @@ Linux: `5 7 * * * uvx --from git+https://github.com/mekkiamiri/harness-catalog@a
 
 Copy `examples/github-actions/ai-radar.yml` to `.github/workflows/` in a public repo and enable Pages (source: GitHub Actions).
 
+## Two runs a day, delivered the next morning (with a private memory repository)
+
+Collection at 9:00 (`ai-radar run`) and at 16:30 (`ai-radar run --deliver`): the 16:30 run writes the page of the last 24 hours for the next morning and syncs it; the workflow `examples/github-actions/phone-digest.yml` in the private repository sends it at 8:00. Computer off at 16:30 = nothing sent.
+
 ## Phone
 
 - **Push reminder**: in `~/.ai-radar/config.toml`, set `[phone] ntfy_topic` to a long random name, install the free ntfy app (iOS/Android) and subscribe to that topic. Each run sends one "radar ready" push with the top items and alerts.

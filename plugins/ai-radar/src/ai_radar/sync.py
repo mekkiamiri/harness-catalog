@@ -7,7 +7,7 @@ ai-radar then reads and writes only `<memory>/ai-radar/`:
     state/notifications.jsonl  alerts already raised (so the other computer does not raise them again)
     profile.md                 copied both ways (config.toml is NOT synced: it holds per-computer paths)
     weekly/YYYY-Www.md, cfp.json
-    daily/YYYY-MM-DD.json      the day's digest; a workflow in the private repo can push it to a phone
+    daily/YYYY-MM-DD.json      next morning's digest, written by `run --deliver`; a scheduled workflow sends it
 
 The radar database itself stays local: it is rebuilt by the collection.
 """
@@ -17,6 +17,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 from datetime import timedelta
@@ -270,7 +271,9 @@ def write_daily_digest(cfg: Config, store: Store, pushed: list[str]) -> Path:
     """The day's digest for the phone: a readable Markdown page (opened from the notification) and a small
     JSON with the notification text. Public titles, one-line summaries and links only."""
     from .pipeline import _short_summary
-    day = now().astimezone().date().isoformat()
+    local = now().astimezone()
+    # dated for the morning it is delivered: after noon, that is tomorrow
+    day = (local.date() + timedelta(days=1 if local.hour >= 12 else 0)).isoformat()
     top = store.query(days=1, limit=6)
     folder = cfg.home / "daily"
     folder.mkdir(parents=True, exist_ok=True)
@@ -285,7 +288,11 @@ def write_daily_digest(cfg: Config, store: Store, pushed: list[str]) -> Path:
         md.append("")
         md.append(it["brief"].strip() if it.get("brief") else _short_summary(it, 400) or "")
         md.append("")
-    md.append("*Open Claude and run `/ai-radar:morning` for the guided session.*")
+    md += ["## Proposals for you", ""]
+    from .repos import proposals
+    for p in proposals(cfg, store, exclude_urls={it["url"] for it in top}):
+        md.append(f"- **[{p['title']}]({p['url']})** — {p['why']}")
+    md += ["", "*Open Claude and run `/ai-radar:morning` for the guided session.*"]
     (folder / f"{day}.md").write_text("\n".join(md), encoding="utf-8")
 
     counts = f"{len(top)} news" + (f", {len(pushed)} alert{'s' if len(pushed) > 1 else ''}" if pushed else "")

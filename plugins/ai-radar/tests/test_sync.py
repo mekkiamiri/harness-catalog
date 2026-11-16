@@ -123,3 +123,24 @@ class TestSyncEdgeCases(TestTwoComputers):
         sync.sync(cfg_a, a)
         self.assertEqual(a.get("repo:x/2")["status"], "starred")
         self.assertEqual(b.get("repo:x/1")["status"], "starred")
+
+
+class TestDeliverAndProposals(TestTwoComputers):
+    def test_deliver_writes_tomorrows_digest_and_pushes(self):
+        from ai_radar import pipeline
+        cfg, store = self.pcs[0]
+        out = pipeline.deliver_digest(cfg, store)
+        self.assertTrue(out["daily_digest"].endswith(".json"))
+        self.assertEqual(out["sync"]["status"], "pushed")
+
+    def test_proposals_need_ai_words_and_whole_word_focus(self):
+        from ai_radar.repos import proposals
+        cfg, store = self.pcs[0]
+        cfg.repos_focus = ["go", "java"]
+        recent = "2099-01-01T00:00:00+00:00"
+        for i, (title, desc) in enumerate([("a/googly", "google agents toolkit"), ("b/mc", "Minecraft Java Edition in Rust"),
+                                           ("c/jagent", "java agent framework")]):
+            store.upsert({"id": f"repo:{title}", "category": "tool", "title": title, "url": f"https://x/{i}",
+                          "source": "G", "description": desc, "published_at": recent, "signals": {"stars_per_day": 10}})
+        store.commit()
+        self.assertEqual([p["title"] for p in proposals(cfg, store)], ["c/jagent"])

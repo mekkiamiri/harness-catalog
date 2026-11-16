@@ -271,6 +271,13 @@ def rss_feeds(cfg: Config) -> list[dict]:
         # A feed is a URL, or {url, keywords} for general news sites (only matching entries are kept).
         url = spec if isinstance(spec, str) else spec.get("url", "")
         keywords = [] if isinstance(spec, str) else [k.lower() for k in spec.get("keywords", [])]
+        if urllib.parse.urlparse(url).hostname in {"www.reddit.com", "reddit.com", "old.reddit.com"}:
+            # Reddit rate-limits RSS readers that go too fast (HTTP 429): keep 12 s between two requests
+            global _LAST_REDDIT
+            wait = 12 - (time.time() - _LAST_REDDIT)
+            if wait > 0:
+                time.sleep(wait)
+            _LAST_REDDIT = time.time()
         try:
             root = ET.fromstring(http_get(url))
         except Exception as e:  # a failing feed never blocks the others
@@ -311,6 +318,8 @@ def rss_feeds(cfg: Config) -> list[dict]:
         raise RuntimeError("; ".join(errors))
     return items
 
+
+_LAST_REDDIT = 0.0
 
 COLLECTORS = {
     "github": github_repos,

@@ -46,7 +46,8 @@ Keep it short: a session should fit in **15 minutes**. Use AskUserQuestion for e
    - **one recall question** (active recall makes summaries stick): ask it, let them answer, correct briefly;
    - then one line: "To go deeper: <link or doc>" — only now.
 4. **Next step** — offer the lab (`/ai-radar:lab`) for the topic that deserves practice, or the next topic.
-5. **Close** — a 3-line recap of what they learned today, mark covered items `read`, then call `sync`.
+5. **Propose, unasked** — start from `proposals` (same picks as the daily page), then end with 3 proposals and tied to the profile's priorities (a tool to try, a lab, something to watch), each with "why for you" and the suggested action. Do not wait for the user to bring ideas.
+6. **Close** — a 3-line recap of what they learned today, mark covered items `read`, then call `sync`.
 
 ## 2. Weekly extras (Mondays, or when asked)
 

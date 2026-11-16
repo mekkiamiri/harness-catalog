@@ -161,3 +161,35 @@ def to_watch(store: Store, limit: int = 15) -> list[dict]:
     items = [Store._item(r) for r in rows]
     items.sort(key=lambda it: -it["signals"].get("contrib_score", 0))
     return items[:limit]
+
+
+AI_WORDS = re.compile(r"\b(ai|llm|agents?|mcp|skills?|claude|codex|gpt|model|harness|rag|eval)\b")
+
+
+def proposals(cfg: Config, store: Store, limit: int = 3, exclude_urls: set[str] | None = None) -> list[dict]:
+    """Proactive picks without LLM (digest page and morning session): fast-growing recent AI repos matching
+    the user's focus topics or mentioned by several sources, not yet read or ignored."""
+    focus = [f.lower() for f in cfg.repos_focus]
+    rows = store.conn.execute(
+        "SELECT title, url, description, signals FROM items WHERE category = 'tool' AND status = 'new'"
+        " AND published_at >= ?", (iso(now() - timedelta(days=45)),)).fetchall()
+    picks = []
+    for r in rows:
+        if exclude_urls and r["url"] in exclude_urls:
+            continue
+        s = json.loads(r["signals"] or "{}")
+        text = f"{r['title']} {r['description']} {' '.join(s.get('topics', []))}".lower()
+        if not AI_WORDS.search(text):
+            continue
+        hits = [f for f in focus if re.search(rf"\b{re.escape(f)}\b", text)]
+        sources = len(set(s.get("resonance") or []) | set(s.get("mentioned_by") or []))
+        if not hits and not sources:
+            continue
+        why = f"{s.get('stars_per_day', 0):.0f} stars/day"
+        if hits:
+            why += f", matches your focus: {', '.join(hits)}"
+        if sources:
+            why += f", mentioned by {sources} source(s)"
+        picks.append((s.get("stars_per_day", 0) * (1 + len(hits)) * (1 + sources), r["title"], r["url"], why))
+    picks.sort(reverse=True)
+    return [{"title": t, "url": u, "why": w} for _, t, u, w in picks[:limit]]
