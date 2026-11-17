@@ -71,7 +71,7 @@ Exemple réel du 15 novembre 2026, besoin = mini PC, 32 Go minimum, 900 € maxi
 ## Sources
 
 Lues automatiquement : GMKtec, Beelink, Minisforum, Ninkear, Chuwi, ACEMAGIC (boutiques officielles UE) et l'Apple Store France (neuf et reconditionné certifié).
-Prévues : Lapstore, Refurbed, Label Emmaüs, AfB. Jamais lues automatiquement (protégées contre les robots) : Leboncoin, Back Market, Amazon, eBay. Pour celles-là, tu reçois des recherches toutes prêtes et l'analyse d'annonce.
+Prévues : Lapstore, Refurbed, Label Emmaüs, AfB. Jamais lues automatiquement (protégées contre les robots) : Leboncoin, Back Market, Amazon, eBay, ainsi que Costco France (pas de catalogue public à lire pour l'instant, carte de membre obligatoire). Pour celles-là, tu reçois des recherches toutes prêtes et l'analyse d'annonce.
 Détails, méthodes et conditions de retour : [docs/sources.md](docs/sources.md).
 
 pc-advisor lit poliment : identifiant honnête, robots.txt respecté, une requête par seconde et par site, cache de 6 heures, et **aucune tentative de contourner une protection**.

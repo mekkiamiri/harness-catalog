@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Costco France added as a manual source (ready-made searches + listing check; membership required).
+
 ## 0.1.0 — 2026-11-15
 
 First version.

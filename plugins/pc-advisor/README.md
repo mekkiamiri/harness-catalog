@@ -75,7 +75,7 @@ Example, live run on 15 November 2026, need = mini PC, 32 GB minimum, 900 € ma
 ## Sources
 
 Read automatically: GMKtec, Beelink, Minisforum, Ninkear, Chuwi, ACEMAGIC (official EU stores) and the Apple Store France (new and certified refurbished).
-Planned: Lapstore, Refurbed, Label Emmaüs, AfB. Never scraped (protected against bots): Leboncoin, Back Market, Amazon, eBay. For those you get ready-made searches and the listing check.
+Planned: Lapstore, Refurbed, Label Emmaüs, AfB. Never scraped (protected against bots): Leboncoin, Back Market, Amazon, eBay, plus Costco France (no public catalog to read yet, membership required). For those you get ready-made searches and the listing check.
 Details, methods and return policies: [docs/sources.md](docs/sources.md).
 
 pc-advisor fetches politely: an honest user agent, robots.txt respected, one request per second per site, a 6-hour cache, and it **never tries to get around a protection**.

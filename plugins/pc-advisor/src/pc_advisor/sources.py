@@ -78,6 +78,14 @@ SOURCES: list[Source] = [
            search_hint="Filter on 'sold by Amazon' or the brand's official store, shipped by Amazon (30-day returns)."),
     Source("ebay", "eBay.fr", "https://www.ebay.fr", "manual", "manual", "EU", "used",
            search_hint="Use eBay Money Back Guarantee; avoid direct bank transfers."),
+    # --- Warehouse club: catalog is a JavaScript app with no public product feed, so manual for now ---
+    Source("costco", "Costco France", "https://www.costco.fr", "manual", "manual", "FR", "new",
+           returns="read on costco.fr before buying (electronics can have shorter limits than other items)",
+           warranty="see store",
+           caution="Membership card needed to buy; add its yearly cost to the price when comparing.",
+           checked="2026-11-17",
+           search_hint="Rayon Electronique > Informatique (portables, PC de bureau, Mac). Bundles often hide "
+                       "an older CPU or soldered RAM: paste the product page into /pc-advisor:listing to check it."),
 ]
 
 

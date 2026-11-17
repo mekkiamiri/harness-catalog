@@ -16,6 +16,7 @@ Policies were read on each site's own pages on **15 November 2026**. They change
 | Refurbed.fr | planned | JSON-LD offers | free return label | 12 months minimum |
 | Label Emmaüs | planned | catalog pages | per seller | often 1 year |
 | AfB France | planned | catalog pages | change-of-mind shipping on you | see store |
+| Costco France (costco.fr) | manual | JavaScript app, no public product feed: ready-made searches + `/pc-advisor:listing` | read on site; electronics may differ | membership card required |
 | Leboncoin, Back Market, Amazon, eBay | manual | **never scraped** (protected): ready-made searches + `/pc-advisor:listing` | | |
 
 ## Add a shop / Ajouter une boutique

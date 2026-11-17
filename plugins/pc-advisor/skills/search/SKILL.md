@@ -18,7 +18,7 @@ If budget, minimum RAM and use are unknown, run the `need` skill first (question
 
 Call `search_offers(...)` with the need. Then read `sources`:
 - `ok`: offers read now. `blocked` or `error`: say which site failed and that its offers are missing.
-- Sources with status `manual` (Leboncoin, Back Market, Amazon, eBay) are never scraped: give the user their `search_hint` and offer `/pc-advisor:listing` to analyse a listing they paste.
+- Sources with status `manual` (Leboncoin, Back Market, Amazon, eBay, Costco) are never scraped: give the user their `search_hint` and offer `/pc-advisor:listing` to analyse a listing they paste.
 
 ## 3. Present
 
