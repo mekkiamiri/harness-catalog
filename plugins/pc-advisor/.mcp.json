@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "pc-advisor": {
+      "command": "uv",
+      "args": ["run", "--quiet", "--frozen", "--project", "${CLAUDE_PLUGIN_ROOT}", "pc-advisor", "mcp"],
+      "env": {
+        "UV_PROJECT_ENVIRONMENT": "${CLAUDE_PLUGIN_DATA}/venv",
+        "PC_ADVISOR_HOME": "${CLAUDE_PLUGIN_DATA}"
+      }
+    }
+  }
+}
