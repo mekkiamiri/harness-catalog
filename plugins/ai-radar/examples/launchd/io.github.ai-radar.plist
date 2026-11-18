@@ -12,7 +12,7 @@
   <array>
     <string>UVX_PATH</string>
     <string>--from</string>
-    <string>git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.0#subdirectory=plugins/ai-radar</string>
+    <string>git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.1#subdirectory=plugins/ai-radar</string>
     <string>ai-radar</string>
     <string>run</string>
   </array>

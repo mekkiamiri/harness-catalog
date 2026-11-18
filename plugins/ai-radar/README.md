@@ -156,7 +156,7 @@ ai-radar only reads public data, at most once a day, and identifies itself with 
   "mcpServers": {
     "ai-radar": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.0#subdirectory=plugins/ai-radar", "ai-radar", "mcp"]
+      "args": ["--from", "git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.1#subdirectory=plugins/ai-radar", "ai-radar", "mcp"]
     }
   }
 }
@@ -167,10 +167,10 @@ The skills (`skills/*/SKILL.md`) follow the [Agent Skills](https://agentskills.i
 **Without any harness**, the CLI covers collection, alerts and the dashboard:
 
 ```sh
-uvx --from git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.0#subdirectory=plugins/ai-radar ai-radar run    # collect + alerts + dashboard
-uvx --from git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.0#subdirectory=plugins/ai-radar ai-radar top    # today's best items
-uvx --from git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.0#subdirectory=plugins/ai-radar ai-radar cfps   # CFPs closing soon
-uvx --from git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.0#subdirectory=plugins/ai-radar ai-radar open   # open the dashboard
+uvx --from git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.1#subdirectory=plugins/ai-radar ai-radar run    # collect + alerts + dashboard
+uvx --from git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.1#subdirectory=plugins/ai-radar ai-radar top    # today's best items
+uvx --from git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.1#subdirectory=plugins/ai-radar ai-radar cfps   # CFPs closing soon
+uvx --from git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.1#subdirectory=plugins/ai-radar ai-radar open   # open the dashboard
 ```
 
 ## Configuration
