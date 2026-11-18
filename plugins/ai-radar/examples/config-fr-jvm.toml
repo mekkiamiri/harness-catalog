@@ -1,0 +1,23 @@
+# Example ~/.ai-radar/config.toml for a JVM developer in France who wants to speak at conferences.
+# Copy the sections you need into ~/.ai-radar/config.toml.
+
+[events]
+enabled = true
+countries = ["France", "Belgium", "Switzerland", "Luxembourg", "Netherlands", "United Kingdom",
+             "Germany", "Spain", "Portugal", "Italy", "Greece", "Poland"]
+topics = ["ai", "artificial-intelligence", "agents", "agentic-ai", "ai-coding", "llm", "machine-learning",
+          "genai", "mcp", "java", "jvm", "spring", "kotlin", "software-craft"]
+name_keywords = ["devoxx", "voxxed", "devfest", "mixit", "jug", "sunny tech", "breizhcamp", "riviera dev",
+                 "snowcamp", "touraine tech", "jfokus", "javazone", "jcon", "spring i/o", "kotlinconf",
+                 "ai engineer", "mcp", "agent", "llm"]
+cfp_notify_keywords = ["devoxx", "voxxed", "devfest", "mixit", "jug", "sunny tech", "breizhcamp",
+                       "riviera dev", "snowcamp", "touraine tech"]
+cfp_alert_days = [30, 14, 7, 2]
+# watchlist = "~/talks/calendar.md"
+meetup = true
+meetup_queries = ["AI agents", "LLM", "MCP", "Claude", "Java", "Spring AI"]
+meetup_lat = 48.8566
+meetup_lon = 2.3522
+
+[feeds]
+"Clubic" = { url = "https://www.clubic.com/feed/rss", keywords = ["ia", "intelligence artificielle", "chatgpt", "openai", "anthropic", "claude", "gemini", "mistral", "llm", "agent ia", "agents ia", "deepseek", "meta ai", "grok", "perplexity", "hugging face", "vibe coding"] }

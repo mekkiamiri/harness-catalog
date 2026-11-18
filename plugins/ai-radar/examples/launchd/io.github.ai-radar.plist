@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Collection, alerts and dashboard every day at 7:05, without LLM.
+     launchd catches up on wake if the Mac was asleep.
+     1. Replace UVX_PATH with the output of: command -v uvx
+     2. cp io.github.ai-radar.plist ~/Library/LaunchAgents/
+     3. launchctl load ~/Library/LaunchAgents/io.github.ai-radar.plist -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>io.github.ai-radar</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>UVX_PATH</string>
+    <string>--from</string>
+    <string>git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.0#subdirectory=plugins/ai-radar</string>
+    <string>ai-radar</string>
+    <string>run</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>7</integer><key>Minute</key><integer>5</integer></dict>
+  <key>StandardOutPath</key><string>/tmp/ai-radar.log</string><!-- or any path you prefer -->
+  <key>StandardErrorPath</key><string>/tmp/ai-radar.log</string>
+</dict>
+</plist>
