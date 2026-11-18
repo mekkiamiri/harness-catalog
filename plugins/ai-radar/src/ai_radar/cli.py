@@ -19,6 +19,8 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--if-older-than", type=float, metavar="HOURS", help="do nothing if the last run is more recent")
     r.add_argument("--deliver", action="store_true",
                    help="also write the digest for the next morning and sync it to your private repository")
+    r.add_argument("--wait-network", type=_minutes, metavar="MINUTES",
+                   help="for scheduled runs: if the network is not up yet, retry 3 times MINUTES apart, then give up")
     c = sub.add_parser("collect", help="collect and score only")
     c.add_argument("--sources", nargs="*", help="limit to some sources (github, openrouter, rss, meetup, cfp_dev...)")
     sub.add_parser("dashboard", help="rebuild the dashboard and exports")
@@ -44,6 +46,11 @@ def main(argv: list[str] | None = None) -> int:
     store = Store(cfg.db_path)
     try:
         if a.cmd == "run":
+            if a.wait_network is not None:
+                from . import collectors
+                if not collectors.wait_for_network(tries=4, pause=a.wait_network * 60):
+                    print("✗ network still unreachable after 3 retries: run skipped.", file=sys.stderr)
+                    return 1
             if a.if_older_than is not None:
                 h = pipeline.hours_since_last_run(store)
                 if pipeline.is_running(cfg):
@@ -96,6 +103,13 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def _minutes(value: str) -> float:
+    m = float(value)
+    if m < 0:
+        raise argparse.ArgumentTypeError("must be 0 or more")
+    return m
+
+
 def _print_report(r: dict) -> None:
     print(f"{r['new']} new items ({r['seen']} seen), {r.get('events_new', 0)} new events.")
     for name, s in r["sources"].items():
@@ -103,6 +117,11 @@ def _print_report(r: dict) -> None:
         print(f"  ✓ {name:20} {s['received']:4} received{extra}")
     for name, e in r["errors"].items():
         print(f"  ✗ {name:20} {e}", file=sys.stderr)
+    for name, w in r.get("warnings", {}).items():
+        print(f"  ⚠ {name:20} partly failed: {w}", file=sys.stderr)
+    if r.get("network_down"):
+        print("  ✗ network lost during the run: marked partial, the next catch-up will collect again.",
+              file=sys.stderr)
     for alert in r.get("alerts", []):
         print(f"  ! {alert}")
     for k, v in r.get("outputs", {}).items():

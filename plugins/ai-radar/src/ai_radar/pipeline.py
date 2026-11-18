@@ -54,7 +54,9 @@ def collect(cfg: Config, store: Store, sources: list[str] | None = None) -> dict
 
 def _collect(cfg: Config, store: Store, sources: list[str] | None = None) -> dict:
     run_id = store.start_run()
-    report: dict = {"new": 0, "seen": 0, "sources": {}, "errors": {}, "alerts": [], "partial": bool(sources)}
+    report: dict = {"new": 0, "seen": 0, "sources": {}, "errors": {}, "warnings": {}, "alerts": [],
+                    "partial": bool(sources)}
+    collectors.reset_network_state()
 
     for name, fn in collectors.COLLECTORS.items():
         if sources and name not in sources:
@@ -66,6 +68,9 @@ def _collect(cfg: Config, store: Store, sources: list[str] | None = None) -> dic
             store.conn.rollback()
             report["errors"][name] = str(e)[:300]
             continue
+        finally:
+            if name in collectors.WARNINGS:
+                report["warnings"][name] = collectors.WARNINGS.pop(name)[:600]
         store.commit()  # never keep a write transaction open during network calls
         report["sources"][name] = {"received": len(items), "new": new}
         report["new"] += new
@@ -116,6 +121,10 @@ def _collect(cfg: Config, store: Store, sources: list[str] | None = None) -> dic
     report["trends"] = trends.language_trends(store)
     report["purged"] = store.purge(cfg.retention_days)
     store.commit()
+    if collectors.network_down():
+        # Incomplete run: flagged partial so it does not count as fresh (`run --if-older-than` will retry).
+        report["network_down"] = True
+        report["partial"] = True
     store.end_run(run_id, report)
     return report
 
