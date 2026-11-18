@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# harness-catalog checks: no user data in the public repository, and the tests pass.
+set -u
+cd "$(git rev-parse --show-toplevel)" || exit 1
+if git ls-files | grep -E '(^|/)(radar\.db|profile\.md|cfp\.json)$|(^|/)weekly/|\.db$|\.env$'; then
+  echo "✗ user data tracked by git (it must stay in ~/.ai-radar or the private memory repository)"; exit 1
+fi
+if command -v uv >/dev/null 2>&1; then
+  (cd plugins/ai-radar && uv run --quiet python -m unittest discover -s tests >/dev/null 2>&1) || { echo "✗ ai-radar tests fail"; exit 1; }
+  (cd plugins/pc-advisor && uv run --quiet python -m unittest discover -s tests >/dev/null 2>&1) || { echo "✗ pc-advisor tests fail"; exit 1; }
+fi
+if git ls-files | grep -E '(^|/)plugins/pc-advisor/(cache/|need\.json$)'; then
+  echo "✗ pc-advisor user data tracked by git (it must stay in ~/.pc-advisor)"; exit 1
+fi
