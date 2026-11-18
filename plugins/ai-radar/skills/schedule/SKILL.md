@@ -36,7 +36,9 @@ Copy `examples/github-actions/ai-radar.yml` to `.github/workflows/` in a public 
 
 ## Two runs a day, delivered the next morning (with a private memory repository)
 
-Collection at 9:00 (`ai-radar run`) and at 16:30 (`ai-radar run --deliver`): the 16:30 run writes the page of the last 24 hours for the next morning and syncs it; the workflow `examples/github-actions/phone-digest.yml` in the private repository sends it at 8:00. Computer off at 16:30 = nothing sent.
+Collection at 9:00 (`ai-radar run --wait-network 20`) and at 16:30 (`ai-radar run --deliver --wait-network 20`): the 16:30 run writes the page of the last 24 hours for the next morning and syncs it; the workflow `examples/github-actions/phone-digest.yml` in the private repository hands it to ntfy at once, and ntfy delivers it at 8:00 (no GitHub cron, which can be hours late). Computer off at 16:30 = nothing sent.
+
+`--wait-network 20`: if the network is not up yet (VPN, proxy, wake from sleep), the run waits and retries 3 times 20 minutes apart, then gives up cleanly instead of timing out on every source. During a run, 5 requests in a row without any server answer (timeout, DNS, refused) also stop the remaining requests at once; that run is marked partial, so the next catch-up collects again.
 
 ## Phone
 

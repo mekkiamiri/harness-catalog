@@ -3,12 +3,13 @@
 # Nothing is sent from the work computer: it only pushes the digest; GitHub sends the notification.
 # Computer off = no new digest = no notification.
 name: phone-digest
-# ai-radar: the 16:30 run pushes tomorrow's digest; it is sent at 8:00 (Paris) the next morning.
+# The 16:30 run pushes tomorrow's digest (ai-radar/daily/<delivery date>.json). It is handed to ntfy right
+# away with an "At" header, and ntfy delivers it at 08:00 (Paris) on that date. No GitHub cron: scheduled
+# workflows are delayed by hours or skipped when GitHub is busy.
 on:
-  schedule:
-    - cron: "0 6 * * *"   # 08:00 Paris in summer (UTC+2)
-    - cron: "0 7 * * *"   # 08:00 Paris in winter (UTC+1)
-  workflow_dispatch:  # manual test: sends the latest digest
+  push:
+    paths: ["ai-radar/daily/*.json"]
+  workflow_dispatch:  # manual test: sends the latest digest now
 permissions:
   contents: read
 jobs:
@@ -28,15 +29,11 @@ jobs:
           TOPIC=$(printf '%s' "$NTFY_TOPIC" | tr -d '[:space:]' | sed 's#.*/##')
           [ -n "$TOPIC" ] || { echo "NTFY_TOPIC secret not set"; exit 0; }
           echo "topic length: ${#TOPIC}"
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            # only the run that falls at 08:00 in Paris; computer off at 16:30 = no file = nothing sent
-            [ "$(TZ=Europe/Paris date +%H)" = "08" ] || { echo "not 08:00 in Paris"; exit 0; }
-            f="ai-radar/daily/$(TZ=Europe/Paris date +%F).json"
-            files=$( [ -f "$f" ] && echo "$f" || true )
-          elif [ "${{ github.event_name }}" = "push" ] && git cat-file -e "$BEFORE" 2>/dev/null; then
+          if [ "${{ github.event_name }}" = "push" ] && git cat-file -e "$BEFORE" 2>/dev/null; then
+            # only newly added files: a second run of the same day modifies the file and sends nothing more
             files=$(git diff --name-only --diff-filter=A "$BEFORE" "$AFTER" -- 'ai-radar/daily/*.json')
           else
-            files=$( (git ls-files 'ai-radar/daily/*.json' | sort | tail -1; git ls-files | sort | tail -1) )
+            files=$(git ls-files 'ai-radar/daily/*.json' | sort | tail -1)
           fi
           for f in $files; do
             # Short notification; tapping it opens the full page of the day in this private repository.
@@ -44,7 +41,19 @@ jobs:
             python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print("\n".join(d.get("lines", [])) or "Nothing new today.")' "$f" > /tmp/body.txt
             page=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("page",""))' "$f")
             click="https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/$page"
-            tags="satellite"
-            curl -s -o /dev/null -w "ntfy %{http_code}\n" -H "Title: $title" -H "Tags: $tags" -H "Click: $click" \
-              --data-binary @/tmp/body.txt "https://ntfy.sh/$TOPIC"
+            at=""
+            if [ "${{ github.event_name }}" = "push" ]; then
+              # 08:00 Paris on the date in the file name, as a Unix time; empty if already past
+              # (late push): then it is sent now. ntfy.sh keeps scheduled messages up to 3 days.
+              at=$(python3 - "$f" <<'PY'
+          import sys, time, datetime as dt, zoneinfo, pathlib
+          day = dt.date.fromisoformat(pathlib.Path(sys.argv[1]).stem)
+          when = dt.datetime.combine(day, dt.time(8, 0), zoneinfo.ZoneInfo("Europe/Paris")).timestamp()
+          print(int(when) if time.time() + 60 < when < time.time() + 3 * 86400 - 60 else "")
+          PY
+              )
+            fi
+            echo "$f -> ${at:+scheduled at }${at:-now}"
+            curl -s -o /dev/null -w "ntfy %{http_code}\n" -H "Title: $title" -H "Tags: satellite" -H "Click: $click" \
+              ${at:+-H "At: $at"} --data-binary @/tmp/body.txt "https://ntfy.sh/$TOPIC"
           done

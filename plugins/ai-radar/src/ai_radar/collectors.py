@@ -23,15 +23,65 @@ USER_AGENT = "ai-radar/0.1 (+https://github.com/mekkiamiri/harness-catalog/tree/
 TIMEOUT = 20
 
 
+# Network breaker: after this many requests in a row without any server answer (timeout, DNS, refused),
+# the rest of the run fails fast instead of waiting
+# TIMEOUT seconds per request (a run started before the network was up once lasted 8 hours).
+NETWORK_DOWN_AFTER = 5
+_TIMEOUTS_IN_A_ROW = 0
+
+# Partial failures of a collector that still returned items (e.g. one RSS feed out of twenty): name -> message.
+WARNINGS: dict[str, str] = {}
+
+
+class NetworkDown(RuntimeError):
+    pass
+
+
+def reset_network_state() -> None:
+    global _TIMEOUTS_IN_A_ROW
+    _TIMEOUTS_IN_A_ROW = 0
+    WARNINGS.clear()
+
+
+def network_down() -> bool:
+    """True when the breaker tripped during this run: the run is incomplete and must not count as fresh."""
+    return _TIMEOUTS_IN_A_ROW >= NETWORK_DOWN_AFTER
+
+
+def wait_for_network(tries: int = 4, pause: float = 1200, url: str = "https://api.github.com") -> bool:
+    """True as soon as `url` answers (any HTTP status counts); else up to `tries` attempts, `pause` seconds apart."""
+    for attempt in range(tries):
+        try:
+            urllib.request.urlopen(urllib.request.Request(url, method="HEAD", headers={"User-Agent": USER_AGENT}),
+                                   timeout=10).close()
+            return True
+        except urllib.error.HTTPError:
+            return True  # the server answered: the network is up
+        except Exception:  # timeout, DNS, refused, captive portal sending a malformed answer...
+            if attempt < tries - 1:
+                time.sleep(max(pause, 0))
+    return False
+
+
 def http_get(url: str, headers: dict | None = None, data: bytes | None = None, tries: int = 3,
              timeout: int = TIMEOUT) -> bytes:
+    global _TIMEOUTS_IN_A_ROW
+    if _TIMEOUTS_IN_A_ROW >= NETWORK_DOWN_AFTER:
+        raise NetworkDown(f"network unreachable ({NETWORK_DOWN_AFTER} failed requests in a row): skipped")
     req = urllib.request.Request(url, data=data, headers={"User-Agent": USER_AGENT, **(headers or {})})
     for attempt in range(tries):
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
-                return resp.read()
-        except urllib.error.HTTPError as e:
-            # Retry only on rate limits (GitHub without a token: 10 searches per minute).
+                body = resp.read()
+            _TIMEOUTS_IN_A_ROW = 0
+            return body
+        except (urllib.error.URLError, TimeoutError) as e:
+            if not isinstance(e, urllib.error.HTTPError):
+                # no answer from a server (timeout, DNS failure, refused, TLS): counts towards "network down"
+                _TIMEOUTS_IN_A_ROW += 1
+                raise
+            _TIMEOUTS_IN_A_ROW = 0  # the server answered
+            # Retry only on rate limits (GitHub without a token: 10 searches per minute; Reddit RSS).
             rate_limited = e.code == 429 or (e.code == 403 and e.headers.get("X-RateLimit-Remaining") == "0")
             if rate_limited and attempt < tries - 1:
                 time.sleep(_retry_after(e.headers))
@@ -316,6 +366,8 @@ def rss_feeds(cfg: Config) -> list[dict]:
             )
     if errors and not items:
         raise RuntimeError("; ".join(errors))
+    if errors:  # some feeds failed (e.g. Reddit 404/429): reported as a warning instead of being lost
+        WARNINGS["rss"] = "; ".join(errors)
     return items
 
 
