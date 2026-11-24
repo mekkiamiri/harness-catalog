@@ -367,11 +367,13 @@ def github_trending(cfg: Config) -> list[dict]:
                       | {k.lower().replace("-", " ") for k in cfg.github_topics})
     best: dict[str, dict] = {}
     errors = []
-    for period, days in TRENDING_PERIODS.items():
+    pages = [(lang, period, days) for lang in ["", *cfg.trending_languages] for period, days in TRENDING_PERIODS.items()]
+    for lang, period, days in pages:
+        path = f"/{urllib.parse.quote(lang)}" if lang else ""
         try:
-            page = http_get(f"https://github.com/trending?since={period}").decode("utf-8", "replace")
-        except Exception as e:  # one failing page must not lose the other
-            errors.append(f"{period}: {e}")
+            page = http_get(f"https://github.com/trending{path}?since={period}").decode("utf-8", "replace")
+        except Exception as e:  # one failing page must not lose the others
+            errors.append(f"{lang or 'all'} {period}: {e}")
             continue
         for r in parse_trending(page):
             text = f"{r['full_name'].replace('/', ' ').replace('-', ' ')} {r['description']}"
@@ -392,18 +394,57 @@ def github_trending(cfg: Config) -> list[dict]:
                     "signals": {
                         "stars": r["stars"],
                         "stars_per_day": rate,
-                        "trending": period,
+                        "trending": f"{period} {lang}".strip(),
                         "language": r["language"],
                     },
                 }
-    if len(errors) == len(TRENDING_PERIODS):
-        raise RuntimeError("; ".join(errors))
+    if len(errors) == len(pages):
+        raise RuntimeError("; ".join(errors[:3]))
     return list(best.values())
+
+
+# --- Tools: new releases of watched Maven artifacts --------------------------
+def maven_releases(cfg: Config) -> list[dict]:
+    """A release of a library you use (Spring AI, LangChain4j, ADK...) published inside the window."""
+    since = datetime.now(timezone.utc) - timedelta(days=cfg.window_days)
+    items, errors = [], []
+    for coord in cfg.maven_watch:
+        group, _, artifact = coord.partition(":")
+        if not (re.fullmatch(r"[\w.-]+", group) and re.fullmatch(r"[\w.-]+", artifact)):
+            continue
+        url = f"https://repo1.maven.org/maven2/{group.replace('.', '/')}/{artifact}/maven-metadata.xml"
+        try:
+            root = ET.fromstring(http_get(url))
+        except Exception as e:  # one failing artifact must not lose the others
+            errors.append(f"{coord}: {e}")
+            continue
+        release = (root.findtext("versioning/release") or root.findtext("versioning/latest") or "").strip()
+        updated = (root.findtext("versioning/lastUpdated") or "").strip()
+        try:
+            when = datetime.strptime(updated, "%Y%m%d%H%M%S").replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        if not release or when < since:
+            continue
+        items.append({
+            "id": f"maven:{group}:{artifact}:{release}",
+            "category": "tool",
+            "title": f"{group}:{artifact} {release}",
+            "url": safe_url(f"https://central.sonatype.com/artifact/{group}/{artifact}/{release}"),
+            "source": "Maven Central",
+            "description": f"New release {release} of {group}:{artifact} on Maven Central.",
+            "published_at": when.isoformat(timespec="seconds"),
+            "signals": {"release": release},
+        })
+    if errors and not items and len(errors) == len(cfg.maven_watch):
+        raise RuntimeError("; ".join(errors[:3]))
+    return items
 
 
 COLLECTORS = {
     "github": github_repos,
     "github_trending": github_trending,
+    "maven": maven_releases,
     "openrouter": openrouter_models,
     "huggingface_models": huggingface_models,
     "huggingface_papers": huggingface_papers,
