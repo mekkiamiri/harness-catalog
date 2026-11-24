@@ -1,4 +1,5 @@
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
 
@@ -87,8 +88,68 @@ class TestTrending(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 collectors.github_trending(self.cfg)
 
+    def test_language_pages_are_read_and_tagged(self):
+        self.cfg.trending_languages = ["java"]
+        urls = []
+
+        def fake(url, *a, **k):
+            urls.append(url)
+            if "/trending/java" in url:
+                return ("<html>" + row("spring-projects", "spring-ai", "An application framework for AI engineering",
+                                       "9,000", "120 stars", "today") + "</html>").encode()
+            return b"<html></html>"
+        with mock.patch.object(collectors, "http_get", side_effect=fake):
+            items = collectors.github_trending(self.cfg)
+        self.assertEqual(sorted(urls), sorted([
+            "https://github.com/trending?since=daily", "https://github.com/trending?since=weekly",
+            "https://github.com/trending/java?since=daily", "https://github.com/trending/java?since=weekly"]))
+        self.assertEqual(items[0]["id"], "repo:spring-projects/spring-ai")
+        self.assertEqual(items[0]["signals"]["trending"], "daily java")
+
     def test_registered_as_a_collector(self):
         self.assertIs(collectors.COLLECTORS["github_trending"], collectors.github_trending)
+        self.assertIs(collectors.COLLECTORS["maven"], collectors.maven_releases)
+
+
+def metadata(release: str, updated: str) -> bytes:
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<metadata><groupId>g</groupId><artifactId>a</artifactId><versioning><latest>{release}</latest>
+<release>{release}</release><versions><version>{release}</version></versions>
+<lastUpdated>{updated}</lastUpdated></versioning></metadata>""".encode()
+
+
+class TestMaven(unittest.TestCase):
+    def setUp(self):
+        self.cfg = Config(home=Path("/nonexistent"))
+        self.cfg.window_days = 14
+        self.cfg.maven_watch = ["dev.langchain4j:langchain4j", "org.old:stale", "bad-coordinate"]
+
+    def test_recent_releases_become_items_old_ones_are_skipped(self):
+        recent = (datetime.now(timezone.utc) - timedelta(days=2)).strftime("%Y%m%d%H%M%S")
+        pages = {
+            "https://repo1.maven.org/maven2/dev/langchain4j/langchain4j/maven-metadata.xml": metadata("1.24.0", recent),
+            "https://repo1.maven.org/maven2/org/old/stale/maven-metadata.xml": metadata("0.1", "20240101000000"),
+        }
+        with mock.patch.object(collectors, "http_get", side_effect=lambda url, *a, **k: pages[url]):
+            items = collectors.maven_releases(self.cfg)
+        self.assertEqual(len(items), 1)
+        it = items[0]
+        self.assertEqual(it["id"], "maven:dev.langchain4j:langchain4j:1.24.0")
+        self.assertEqual(it["title"], "dev.langchain4j:langchain4j 1.24.0")
+        self.assertEqual(it["source"], "Maven Central")
+        self.assertEqual(it["url"], "https://central.sonatype.com/artifact/dev.langchain4j/langchain4j/1.24.0")
+        self.assertEqual(it["signals"]["release"], "1.24.0")
+
+    def test_failing_artifact_does_not_lose_the_others(self):
+        recent = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+
+        def fake(url, *a, **k):
+            if "langchain4j" in url:
+                raise OSError("timeout")
+            return metadata("2.0", recent)
+        with mock.patch.object(collectors, "http_get", side_effect=fake):
+            items = collectors.maven_releases(self.cfg)
+        self.assertEqual([i["id"] for i in items], ["maven:org.old:stale:2.0"])
 
 
 if __name__ == "__main__":
