@@ -363,11 +363,13 @@ def parse_trending(page: str) -> list[dict]:
 
 
 def github_trending(cfg: Config) -> list[dict]:
-    keywords = sorted({k.lower() for k in TRENDING_AI_KEYWORDS + cfg.github_keywords + cfg.github_topics}
-                      | {k.lower().replace("-", " ") for k in cfg.github_topics})
+    # _matches turns "-" and "_" into spaces in the text: do the same in the keywords.
+    keywords = sorted({re.sub(r"[-_]+", " ", k.lower()).strip()
+                       for k in TRENDING_AI_KEYWORDS + cfg.github_keywords + cfg.github_topics})
     best: dict[str, dict] = {}
     errors = []
     pages = [(lang, period, days) for lang in ["", *cfg.trending_languages] for period, days in TRENDING_PERIODS.items()]
+    parsed = 0
     for lang, period, days in pages:
         path = f"/{urllib.parse.quote(lang)}" if lang else ""
         try:
@@ -375,8 +377,10 @@ def github_trending(cfg: Config) -> list[dict]:
         except Exception as e:  # one failing page must not lose the others
             errors.append(f"{lang or 'all'} {period}: {e}")
             continue
-        for r in parse_trending(page):
-            text = f"{r['full_name'].replace('/', ' ').replace('-', ' ')} {r['description']}"
+        rows = parse_trending(page)
+        parsed += len(rows)
+        for r in rows:
+            text = re.sub(r"[/_-]+", " ", f"{r['full_name']} {r['description']}")
             if not _matches(text, keywords):
                 continue
             rate = round(r["period_stars"] / days, 1)
@@ -388,6 +392,7 @@ def github_trending(cfg: Config) -> list[dict]:
                     "title": r["full_name"],
                     "url": safe_url(f"https://github.com/{r['full_name']}"),
                     "source": "GitHub Trending",
+                    "merge_signals": True,
                     "description": r["description"],
                     # Trending is a "now" signal: date it today so freshness reflects the surge.
                     "published_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -400,6 +405,8 @@ def github_trending(cfg: Config) -> list[dict]:
                 }
     if len(errors) == len(pages):
         raise RuntimeError("; ".join(errors[:3]))
+    if parsed == 0:  # pages fetched but nothing recognized: GitHub changed its markup
+        raise RuntimeError("GitHub Trending: no repository found in the pages (markup changed?)")
     return list(best.values())
 
 
@@ -408,10 +415,10 @@ def maven_releases(cfg: Config) -> list[dict]:
     """A release of a library you use (Spring AI, LangChain4j, ADK...) published inside the window."""
     since = datetime.now(timezone.utc) - timedelta(days=cfg.window_days)
     items, errors = [], []
-    for coord in cfg.maven_watch:
-        group, _, artifact = coord.partition(":")
-        if not (re.fullmatch(r"[\w.-]+", group) and re.fullmatch(r"[\w.-]+", artifact)):
-            continue
+    valid = [c.partition(":")[::2] for c in cfg.maven_watch]
+    valid = [(g, a) for g, a in valid if re.fullmatch(r"[\w.-]+", g) and re.fullmatch(r"[\w.-]+", a)]
+    for group, artifact in valid:
+        coord = f"{group}:{artifact}"
         url = f"https://repo1.maven.org/maven2/{group.replace('.', '/')}/{artifact}/maven-metadata.xml"
         try:
             root = ET.fromstring(http_get(url))
@@ -436,7 +443,7 @@ def maven_releases(cfg: Config) -> list[dict]:
             "published_at": when.isoformat(timespec="seconds"),
             "signals": {"release": release},
         })
-    if errors and not items and len(errors) == len(cfg.maven_watch):
+    if valid and len(errors) == len(valid):
         raise RuntimeError("; ".join(errors[:3]))
     return items
 
