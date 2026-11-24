@@ -1,6 +1,6 @@
 [project]
 name = "ai-radar"
-version = "0.1.1"
+version = "0.1.2"
 description = "Know about new AI tools, models and papers the day they ship. Daily radar ranked by cross-source resonance, with briefs, adaptive labs, conferences and CFP alerts. CLI + MCP server + Claude Code plugin."
 readme = "README.md"
 license = "MIT"

@@ -30,7 +30,7 @@ New agents, the model everyone suddenly talks about, the research topic that tak
 
 | What | Early signal | Source |
 |---|---|---|
-| **Tools, agents, MCP, skills** | A recent repo gaining stars fast; several "awesome-X" lists in the same week (a new category is emerging) | GitHub API |
+| **Tools, agents, MCP, skills** | A recent repo gaining stars fast; an older AI repo suddenly on GitHub Trending (daily or weekly); several "awesome-X" lists in the same week (a new category is emerging) | GitHub API, GitHub Trending |
 | **Models** | A new id on an aggregator, a trending model | OpenRouter, Hugging Face |
 | **Research** | A paper collecting votes | Hugging Face Daily Papers |
 | **Articles** | Reference newsletters and blogs | Latent Space, Interconnects, AINews, TLDR AI, Simon Willison, Hacker News |
@@ -91,7 +91,7 @@ Or just ask "what's new in AI today?", "should I move from Java to Python for AI
 
 ```mermaid
 flowchart LR
-    S[GitHub · OpenRouter · Hugging Face · RSS<br/>developers.events · cfp.dev · Meetup · PYPL] -->|collection, no LLM| C[ai-radar CLI]
+    S[GitHub · GitHub Trending · OpenRouter · Hugging Face · RSS<br/>developers.events · cfp.dev · Meetup · PYPL] -->|collection, no LLM| C[ai-radar CLI]
     C --> DB[(SQLite<br/>~/.ai-radar)]
     DB --> SC[Scores · alerts · trends]
     SC --> D[Dashboard]
@@ -140,6 +140,7 @@ ai-radar only reads public data, at most once a day, and identifies itself with 
 | Source | Access | Note |
 |---|---|---|
 | GitHub | Official REST API | 10 searches/minute without a token |
+| GitHub Trending | Public page `github.com/trending` (daily, weekly), AI repos only | 2 pages per run |
 | OpenRouter, Hugging Face | Public APIs | |
 | RSS / Atom feeds | Public feeds | Configurable |
 | developers.events | Public JSON of a community agenda | No stability promise |
@@ -156,7 +157,7 @@ ai-radar only reads public data, at most once a day, and identifies itself with 
   "mcpServers": {
     "ai-radar": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.1#subdirectory=plugins/ai-radar", "ai-radar", "mcp"]
+      "args": ["--from", "git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.2#subdirectory=plugins/ai-radar", "ai-radar", "mcp"]
     }
   }
 }
@@ -167,10 +168,10 @@ The skills (`skills/*/SKILL.md`) follow the [Agent Skills](https://agentskills.i
 **Without any harness**, the CLI covers collection, alerts and the dashboard:
 
 ```sh
-uvx --from git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.1#subdirectory=plugins/ai-radar ai-radar run    # collect + alerts + dashboard
-uvx --from git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.1#subdirectory=plugins/ai-radar ai-radar top    # today's best items
-uvx --from git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.1#subdirectory=plugins/ai-radar ai-radar cfps   # CFPs closing soon
-uvx --from git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.1#subdirectory=plugins/ai-radar ai-radar open   # open the dashboard
+uvx --from git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.2#subdirectory=plugins/ai-radar ai-radar run    # collect + alerts + dashboard
+uvx --from git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.2#subdirectory=plugins/ai-radar ai-radar top    # today's best items
+uvx --from git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.2#subdirectory=plugins/ai-radar ai-radar cfps   # CFPs closing soon
+uvx --from git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.2#subdirectory=plugins/ai-radar ai-radar open   # open the dashboard
 ```
 
 ## Configuration
