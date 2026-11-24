@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2 (2026-11-24)
+
+- New source: GitHub Trending (daily and weekly pages, AI repos only). The GitHub search only sees repos created inside the window, so an older repo that suddenly takes off was missed (plannotator: 11 months old, #1 of the week). Stars per day come from the stars gained over the period.
+
 ## 0.1.1 (2026-11-17)
 
 Features shipped after the 0.1.0 tag. The version bump lets installed plugins receive them (Claude Code updates a plugin only when its version changes).

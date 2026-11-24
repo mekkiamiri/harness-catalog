@@ -28,7 +28,7 @@ Claude Desktop → **Code** tab → **Scheduled** → new task:
 ## C. launchd / cron
 
 The plugin repository ships `examples/launchd/io.github.ai-radar.plist`: copy it to `~/Library/LaunchAgents/`, replace `UVX_PATH` with the output of `command -v uvx`, then `launchctl load ~/Library/LaunchAgents/io.github.ai-radar.plist`.
-Linux: `5 7 * * * uvx --from git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.1#subdirectory=plugins/ai-radar ai-radar run`.
+Linux: `5 7 * * * uvx --from git+https://github.com/mekkiamiri/harness-catalog@ai-radar-v0.1.2#subdirectory=plugins/ai-radar ai-radar run`.
 
 ## D. GitHub Actions
 

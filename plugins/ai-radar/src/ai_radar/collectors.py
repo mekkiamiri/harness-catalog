@@ -321,8 +321,89 @@ def rss_feeds(cfg: Config) -> list[dict]:
 
 _LAST_REDDIT = 0.0
 
+
+# --- Tools: established repos that accelerate (GitHub Trending) --------------
+# The search above only sees repos created inside the window. A repo created months ago that
+# suddenly takes off (plannotator: 11 months old, #1 of the week) only shows up here.
+TRENDING_PERIODS = {"daily": 1, "weekly": 7}
+TRENDING_AI_KEYWORDS = [
+    "ai", "llm", "llms", "agent", "agents", "agentic", "mcp", "claude", "claude code", "codex", "gpt",
+    "openai", "anthropic", "gemini", "copilot", "rag", "skills", "prompt", "prompts", "chatbot",
+    "language model", "inference", "embeddings", "transformers", "diffusion", "fine tuning",
+    "machine learning", "deep learning", "coding agent", "vibe coding",
+]
+_TRENDING_ROW = re.compile(r'<article class="Box-row">(.*?)</article>', re.S)
+
+
+def _int(text: str) -> int:
+    digits = re.sub(r"[^\d]", "", text or "")
+    return int(digits) if digits else 0
+
+
+def parse_trending(page: str) -> list[dict]:
+    """Repos listed on a github.com/trending page, in page order."""
+    repos = []
+    for block in _TRENDING_ROW.findall(page):
+        h2 = re.search(r"<h2[^>]*>.*?href=\"/([\w.-]+/[\w.-]+)\"", block, re.S)
+        if not h2:
+            continue
+        name = h2.group(1)
+        desc = re.search(r'<p class="col-9[^"]*">(.*?)</p>', block, re.S)
+        lang = re.search(r'itemprop="programmingLanguage">([^<]+)<', block)
+        stars = re.search(r'href="/' + re.escape(name) + r'/stargazers"[^>]*>.*?</svg>\s*([\d,]+)', block, re.S)
+        period = re.search(r"([\d,]+)\s+stars?\s+(?:today|this week|this month)", block)
+        repos.append({
+            "full_name": name,
+            "description": clean(desc.group(1)) if desc else "",
+            "language": lang.group(1).strip() if lang else None,
+            "stars": _int(stars.group(1)) if stars else 0,
+            "period_stars": _int(period.group(1)) if period else 0,
+        })
+    return repos
+
+
+def github_trending(cfg: Config) -> list[dict]:
+    keywords = sorted({k.lower() for k in TRENDING_AI_KEYWORDS + cfg.github_keywords + cfg.github_topics}
+                      | {k.lower().replace("-", " ") for k in cfg.github_topics})
+    best: dict[str, dict] = {}
+    errors = []
+    for period, days in TRENDING_PERIODS.items():
+        try:
+            page = http_get(f"https://github.com/trending?since={period}").decode("utf-8", "replace")
+        except Exception as e:  # one failing page must not lose the other
+            errors.append(f"{period}: {e}")
+            continue
+        for r in parse_trending(page):
+            text = f"{r['full_name'].replace('/', ' ').replace('-', ' ')} {r['description']}"
+            if not _matches(text, keywords):
+                continue
+            rate = round(r["period_stars"] / days, 1)
+            key = r["full_name"].lower()
+            if key not in best or rate > best[key]["signals"]["stars_per_day"]:
+                best[key] = {
+                    "id": f"repo:{key}",
+                    "category": "tool",
+                    "title": r["full_name"],
+                    "url": safe_url(f"https://github.com/{r['full_name']}"),
+                    "source": "GitHub Trending",
+                    "description": r["description"],
+                    # Trending is a "now" signal: date it today so freshness reflects the surge.
+                    "published_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                    "signals": {
+                        "stars": r["stars"],
+                        "stars_per_day": rate,
+                        "trending": period,
+                        "language": r["language"],
+                    },
+                }
+    if len(errors) == len(TRENDING_PERIODS):
+        raise RuntimeError("; ".join(errors))
+    return list(best.values())
+
+
 COLLECTORS = {
     "github": github_repos,
+    "github_trending": github_trending,
     "openrouter": openrouter_models,
     "huggingface_models": huggingface_models,
     "huggingface_papers": huggingface_papers,
