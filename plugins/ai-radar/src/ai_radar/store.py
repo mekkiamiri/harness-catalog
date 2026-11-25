@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS runs (
 """
 
 ITEM_FIELDS = {"status", "brief", "lab", "relevant"}
-PRESERVED_SIGNALS = ("contrib", "contrib_score", "mentioned_by")
+PRESERVED_SIGNALS = ("contrib", "contrib_score", "mentioned_by", "readme")
 
 
 def _later(a: str | None, b: str | None) -> str | None:

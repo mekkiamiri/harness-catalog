@@ -75,7 +75,7 @@ Or just ask "what's new in AI today?", "should I move from Java to Python for AI
 
 **The weekly digest** (`~/.ai-radar/weekly/YYYY-Www.md`) sums up the week: top 10, rising topics, languages and frameworks, CFPs closing within 30 days, online events.
 
-**The dashboard** (`~/.ai-radar/dashboard/index.html`) keeps every item for **30 days** (starred items stay), ranked by score, with tabs for events and CFPs (sorted by closing date) and language trends. It is a single offline HTML file that can be published as is on GitHub Pages.
+**The dashboard** (`~/.ai-radar/dashboard/index.html`) shows a "For you" verdict on each card, can read the cards aloud (🎧 Listen, built into the browser, free) and keeps every item for **30 days** (starred items stay), ranked by score, with tabs for events and CFPs (sorted by closing date) and language trends. It is a single offline HTML file that can be published as is on GitHub Pages.
 
 ### Every morning, automatically
 

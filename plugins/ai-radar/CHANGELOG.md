@@ -7,6 +7,9 @@
 - New source: Maven Central releases of watched artifacts (`maven_watch`, default Spring AI, LangChain4j, Google ADK, MCP Java SDK, Anthropic Java SDK, A2A Java SDK, Spring AI A2A).
 - Malware lures dropped by content, not only by star farms: "Adobe Acrobat Pro - ... on Windows 10/11" in a "-win" repo, cracks, keygens, "alternative access" (6 such repos had reached the daily top; GitHub deleted them days later).
 - The daily "Top of the day" keeps at most 2 items per category, so six GitHub repos can no longer hide every article, paper and model.
+- Repos with no real description get the first paragraph of their README (read from raw.githubusercontent.com, no API quota, 60 per run).
+- "For you" verdict on every card (yes / maybe / no from `[repos] focus`, or the **For you** line of a brief), and a "For me only" filter.
+- 🎧 Listen: the dashboard reads the visible cards aloud with the browser's own speech synthesis (free, offline, voice and speed selectable).
 - New feed: Show HN about AI from 3 points, where authors announce their tools before any newsletter.
 
 ## 0.1.1 (2026-11-17)
