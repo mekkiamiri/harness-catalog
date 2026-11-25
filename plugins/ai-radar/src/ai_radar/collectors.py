@@ -182,7 +182,8 @@ def github_repos(cfg: Config) -> list[dict]:
 
 _LURE_WORDS = re.compile(
     r"\b(crack(ed|s)?|keygen|activator|activation key|serial (key|number)|licen[cs]e key|product key|"
-    r"full version|free download|pre-?activated|repack|nulled|warez|alternative access)\b", re.I)
+    r"full version|free download|pre-?activated|repack|nulled|warez|alternative access|"
+    r"powershell (quick )?install|download the (exe|zip|installer))\b", re.I)
 _LURE_NAME = re.compile(r"\b(keygen|activator|warez|nulled)\b", re.I)  # "cracked" alone is a real repo name
 _ON_WINDOWS = re.compile(r"\bon windows 1[01]\b", re.I)
 

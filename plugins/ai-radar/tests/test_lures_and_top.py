@@ -13,6 +13,7 @@ class TestLures(unittest.TestCase):
             ("x/claude-ai-prompt-utility", "Claude AI Prompt Utility: Technical Alternative Access Framework"),
             ("y/fl-studio", "FL Studio 2026 full version free download with activator"),
             ("z/office-tool", "Microsoft Office 2024 crack + keygen"),
+            ("w/prompt-kit", "Prompt toolkit. PowerShell quick install: download the installer from our page"),
         ]
         for name, desc in lures:
             self.assertTrue(collectors.looks_like_lure(name, desc), name)
