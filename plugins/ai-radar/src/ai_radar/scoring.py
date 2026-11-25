@@ -128,10 +128,13 @@ def score_items(items: list[dict], now: datetime | None = None) -> list[tuple[st
         p = popularity(it)
         r = min(45, 15 * len(sources))
         v = 15 if it.get("relevant") else 0
-        score = f + p + r + emergence + v
+        n = 25 if signals.get("network") else 0  # published by someone you follow
+        score = f + p + r + emergence + v + n
         signals["score_detail"] = {
             "freshness": round(f, 1), "popularity": round(p, 1),
             "resonance": r, "emergence": emergence, "validation": v,
         }
+        if n:
+            signals["score_detail"]["network"] = n
         results.append((it["id"], score, signals))
     return results

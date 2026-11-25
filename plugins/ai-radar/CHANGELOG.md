@@ -10,6 +10,7 @@
 - Repos with no real description get the first paragraph of their README (read from raw.githubusercontent.com, no API quota, 60 per run).
 - "For you" verdict on every card (yes / maybe / no from `[repos] focus`, or the **For you** line of a brief), and a "For me only" filter.
 - 🎧 Listen: the dashboard reads the visible cards aloud with the browser's own speech synthesis (free, offline, voice and speed selectable).
+- `[people] github`: accounts you follow (colleagues, teams). Their repos created or pushed in the last 90 days always show up, even with zero stars, with a +25 score bonus and a 👥 tag.
 - New feed: Show HN about AI from 3 points, where authors announce their tools before any newsletter.
 
 ## 0.1.1 (2026-11-17)

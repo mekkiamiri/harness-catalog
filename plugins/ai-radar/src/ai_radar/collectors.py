@@ -520,8 +520,57 @@ def maven_releases(cfg: Config) -> list[dict]:
     return items
 
 
+# --- Tools: what the people you follow publish (any number of stars) ---------
+def network_repos(cfg: Config) -> list[dict]:
+    """Repos created or pushed inside the window by the accounts of [people] github: a colleague's
+    0-star project never trends, so it is followed by name."""
+    if not cfg.people:
+        return []
+    headers = {"Accept": "application/vnd.github+json"}
+    if cfg.github_token:
+        headers["Authorization"] = f"Bearer {cfg.github_token}"
+    # a colleague's project is worth seeing for weeks, not only inside the 14-day news window
+    since = datetime.now(timezone.utc) - timedelta(days=max(cfg.window_days, 90))
+    items, errors = [], []
+    for login in cfg.people:
+        if not re.fullmatch(r"[A-Za-z0-9-]{1,39}", login):
+            continue
+        url = f"https://api.github.com/users/{login}/repos?sort=pushed&per_page=30"
+        try:
+            repos = json.loads(http_get(url, headers))
+        except Exception as e:  # one failing account must not lose the others
+            errors.append(f"{login}: {e}")
+            continue
+        for r in repos:
+            pushed = _parse_iso(r.get("pushed_at") or r.get("created_at") or "1970-01-01T00:00:00Z")
+            if r.get("fork") or pushed < since:
+                continue
+            age = max(1.0, (datetime.now(timezone.utc) - _parse_iso(r["created_at"])).total_seconds() / 86400)
+            items.append({
+                "id": f"repo:{r['full_name'].lower()}",
+                "category": "tool",
+                "title": r["full_name"],
+                "url": safe_url(r["html_url"]),
+                "source": "Your network",
+                "merge_signals": True,
+                "description": clean(r.get("description")),
+                "published_at": pushed.isoformat(timespec="seconds"),
+                "signals": {
+                    "stars": r.get("stargazers_count", 0),
+                    "stars_per_day": round(r.get("stargazers_count", 0) / age, 1),
+                    "topics": (r.get("topics") or [])[:8],
+                    "language": r.get("language"),
+                    "network": login,
+                },
+            })
+    if errors and not items and len(errors) == len(cfg.people):
+        raise RuntimeError("; ".join(errors[:3]))
+    return items
+
+
 COLLECTORS = {
     "github": github_repos,
+    "network": network_repos,
     "github_trending": github_trending,
     "maven": maven_releases,
     "openrouter": openrouter_models,
