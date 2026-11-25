@@ -1,3 +1,4 @@
+import os
 import subprocess
 import tempfile
 import unittest
@@ -6,6 +7,13 @@ from pathlib import Path
 from ai_radar import sync
 from ai_radar.config import Config
 from ai_radar.store import Store
+
+
+def setUpModule():
+    # Inside a git hook, GIT_DIR / GIT_INDEX_FILE point at the real repository: every `git` call of these
+    # tests (and of ai_radar.sync) would then rewrite ITS config (user Test, core.hooksPath=/dev/null).
+    for key in [k for k in os.environ if k.startswith("GIT_")]:
+        os.environ.pop(key)
 
 
 def git(*args, cwd=None):
