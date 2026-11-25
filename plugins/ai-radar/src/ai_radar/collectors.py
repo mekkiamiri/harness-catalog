@@ -155,6 +155,7 @@ def github_repos(cfg: Config) -> list[dict]:
     items = []
     # Without a token the users API allows 60 calls/hour: check only the most starred owners.
     max_checks = 200 if cfg.github_token else 40
+    seen = {n: r for n, r in seen.items() if not looks_like_lure(n, r.get("description"))}
     for name, r in drop_lure_accounts(filter_spam(seen), headers, max_checks).items():
         created = r["created_at"]
         age = max(1.0, (datetime.now(timezone.utc) - _parse_iso(created)).total_seconds() / 86400)
@@ -177,6 +178,24 @@ def github_repos(cfg: Config) -> list[dict]:
             }
         )
     return items
+
+
+_LURE_WORDS = re.compile(
+    r"\b(crack(ed|s)?|keygen|activator|activation key|serial (key|number)|licen[cs]e key|product key|"
+    r"full version|free download|pre-?activated|repack|nulled|warez|alternative access)\b", re.I)
+_LURE_NAME = re.compile(r"\b(keygen|activator|warez|nulled)\b", re.I)  # "cracked" alone is a real repo name
+_ON_WINDOWS = re.compile(r"\bon windows 1[01]\b", re.I)
+
+
+def looks_like_lure(name: str, description: str | None) -> bool:
+    """Malware lures dressed as software downloads: "Adobe Acrobat Pro - ... on Windows 10/11" in a
+    "-win" repo, cracks, keygens, "alternative access" to paid AI tools. GitHub deletes them days later."""
+    desc = description or ""
+    if _LURE_WORDS.search(desc) or _LURE_NAME.search(name.replace("-", " ")):
+        return True
+    repo = name.split("/")[-1].lower()
+    product_pitch = re.match(r"^[^:]{3,60} - ", desc) is not None
+    return bool(_ON_WINDOWS.search(desc)) and (repo.endswith(("-win", "-windows")) or product_pitch)
 
 
 def filter_spam(repos: dict[str, dict]) -> dict[str, dict]:
@@ -433,7 +452,7 @@ def github_trending(cfg: Config) -> list[dict]:
         parsed += len(rows)
         for r in rows:
             text = re.sub(r"[/_-]+", " ", f"{r['full_name']} {r['description']}")
-            if not _matches(text, keywords):
+            if not _matches(text, keywords) or looks_like_lure(r["full_name"], r["description"]):
                 continue
             rate = round(r["period_stars"] / days, 1)
             key = r["full_name"].lower()

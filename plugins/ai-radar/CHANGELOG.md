@@ -5,6 +5,8 @@
 - New source: GitHub Trending (daily and weekly pages, AI repos only). The GitHub search only sees repos created inside the window, so an older repo that suddenly takes off was missed (plannotator: 11 months old, #1 of the week). Stars per day come from the stars gained over the period.
 - GitHub Trending per language too (`trending_languages`, default Java, Kotlin, Python, TypeScript, Go, Rust): Java AI repos (LangChain4j, Spring AI...) rarely reach the all-languages page.
 - New source: Maven Central releases of watched artifacts (`maven_watch`, default Spring AI, LangChain4j, Google ADK, MCP Java SDK, Anthropic Java SDK, A2A Java SDK, Spring AI A2A).
+- Malware lures dropped by content, not only by star farms: "Adobe Acrobat Pro - ... on Windows 10/11" in a "-win" repo, cracks, keygens, "alternative access" (6 such repos had reached the daily top; GitHub deleted them days later).
+- The daily "Top of the day" keeps at most 2 items per category, so six GitHub repos can no longer hide every article, paper and model.
 - New feed: Show HN about AI from 3 points, where authors announce their tools before any newsletter.
 
 ## 0.1.1 (2026-11-17)

@@ -267,6 +267,21 @@ def _sync(cfg: Config, store: Store, root: Path | None) -> dict:
     return report
 
 
+def diverse_top(items: list[dict], n: int = 6, per_category: int = 2) -> list[dict]:
+    """Best items by score, at most `per_category` per category (tools, models, research, articles) so that
+    six GitHub repos cannot hide every article; completed by score when a category is missing."""
+    picked, counts = [], {}
+    for it in items:
+        c = it.get("category")
+        if counts.get(c, 0) < per_category:
+            picked.append(it)
+            counts[c] = counts.get(c, 0) + 1
+        if len(picked) == n:
+            return picked
+    rest = [it for it in items if it not in picked]
+    return picked + rest[: n - len(picked)]
+
+
 def write_daily_digest(cfg: Config, store: Store, pushed: list[str]) -> Path:
     """The day's digest for the phone: a readable Markdown page (opened from the notification) and a small
     JSON with the notification text. Public titles, one-line summaries and links only."""
@@ -274,7 +289,7 @@ def write_daily_digest(cfg: Config, store: Store, pushed: list[str]) -> Path:
     local = now().astimezone()
     # dated for the morning it is delivered: after noon, that is tomorrow
     day = (local.date() + timedelta(days=1 if local.hour >= 12 else 0)).isoformat()
-    top = store.query(days=1, limit=6)
+    top = diverse_top(store.query(days=1, limit=60), 6)
     folder = cfg.home / "daily"
     folder.mkdir(parents=True, exist_ok=True)
 
