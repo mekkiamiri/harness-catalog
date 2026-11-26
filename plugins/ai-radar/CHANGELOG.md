@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.2 (2026-11-24)
+
+- New source: GitHub Trending (daily and weekly pages, AI repos only). The GitHub search only sees repos created inside the window, so an older repo that suddenly takes off was missed (plannotator: 11 months old, #1 of the week). Stars per day come from the stars gained over the period.
+- GitHub Trending per language too (`trending_languages`, default Java, Kotlin, Python, TypeScript, Go, Rust): Java AI repos (LangChain4j, Spring AI...) rarely reach the all-languages page.
+- New source: Maven Central releases of watched artifacts (`maven_watch`, default Spring AI, LangChain4j, Google ADK, MCP Java SDK, Anthropic Java SDK, A2A Java SDK, Spring AI A2A).
+- Malware lures dropped by content, not only by star farms: "Adobe Acrobat Pro - ... on Windows 10/11" in a "-win" repo, cracks, keygens, "alternative access" (6 such repos had reached the daily top; GitHub deleted them days later).
+- The daily "Top of the day" keeps at most 2 items per category, so six GitHub repos can no longer hide every article, paper and model.
+- Repos with no real description get the first paragraph of their README (read from raw.githubusercontent.com, no API quota, 60 per run).
+- "For you" verdict on every card (yes / maybe / no from `[repos] focus`, or the **For you** line of a brief), and a "For me only" filter.
+- 🎧 Listen: the dashboard reads the visible cards aloud with the browser's own speech synthesis (free, offline, voice and speed selectable).
+- `[people] github`: accounts you follow (colleagues, teams). Their repos created or pushed in the last 90 days always show up, even with zero stars, with a +25 score bonus and a 👥 tag.
+- Alerts on the dashboard link to their events (and CFP pages); a grouped alert is shown once.
+- `sync` also copies the dashboard to the private repository (`ai-radar/dashboard/index.html`), so it can be published on a private site and opened on a phone. HTTP error reasons are dropped from the dashboard (a company proxy writes its own name there).
+- `[repos] watch`: repos followed by name (e.g. a project you want to contribute to) are always in the Repos tab with their contribution analysis, whatever their age or growth, with a 📌 tag and a +25 score bonus.
+- New feed: Show HN about AI from 3 points, where authors announce their tools before any newsletter.
+
 ## 0.1.1 (2026-11-17)
 
 Features shipped after the 0.1.0 tag. The version bump lets installed plugins receive them (Claude Code updates a plugin only when its version changes).

@@ -19,20 +19,64 @@ CATEGORIES = {
 
 def dashboard(cfg: Config, store: Store) -> Path:
     items = store.query(days=cfg.retention_days, limit=2000)
+    from .describe import for_you
+    for it in items:
+        it["for_you"] = for_you(it, cfg.repos_focus)
     data = {
         "generated_at": datetime.now().astimezone().isoformat(timespec="minutes"),
-        "last_run": store.last_run(),
+        "last_run": redact_errors(store.last_run()),
         "categories": CATEGORIES,
         "items": items,
         "events": store.events(days_ahead=365),
         "repos": repos_to_watch(store),
-        "alerts": store.recent_notifications(days=7),
+        "alerts": alerts_with_links(store),
     }
     payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
     html = TEMPLATE.replace("/*__DATA__*/null", payload)
     cfg.dashboard_path.parent.mkdir(parents=True, exist_ok=True)
     cfg.dashboard_path.write_text(html, encoding="utf-8")
     return cfg.dashboard_path
+
+
+def event_id_of(key: str) -> str | None:
+    """Event behind an alert key: "online:meetup:<url>" / "meetup:<url>:online" -> "meetup:<url>",
+    "conf:<slug>:<what>:<date>" -> "conf:<slug>"."""
+    if key.startswith("online:"):
+        key = key[len("online:"):]
+    if key.startswith("meetup:"):
+        return key[: -len(":online")] if key.endswith(":online") else key
+    if key.startswith("conf:"):
+        return ":".join(key.split(":")[:2])
+    return None
+
+
+def alerts_with_links(store: Store, days: int = 7) -> list[dict]:
+    """Recent alerts, one line per message, each with links to the events it is about."""
+    rows = store.conn.execute("SELECT id, name, url, cfp_url FROM events").fetchall()
+    events = {r["id"]: dict(r) for r in rows}
+    out: dict[str, dict] = {}
+    for n in store.recent_notifications(days=days):
+        a = out.setdefault(n["message"], {"message": n["message"], "sent_at": n["sent_at"], "links": []})
+        e = events.get(event_id_of(n["key"]) or "")
+        if not e:
+            continue
+        for label, url in ((e["name"], e["url"]), ("CFP", e.get("cfp_url") or "")):
+            if url.startswith(("https://", "http://")) and url not in [l["url"] for l in a["links"]]:
+                a["links"].append({"name": label if label != "CFP" else f"CFP {e['name']}", "url": url})
+    return list(out.values())
+
+
+def redact_errors(value):
+    """Drop the free text of HTTP errors ("HTTP Error 403: <reason>"): a company proxy puts its own name
+    and policy there, and the dashboard may be copied to a repository or a site."""
+    import re
+    if isinstance(value, str):
+        return re.sub(r"(HTTP Error \d{3})(: [^;\n]*)?", r"\1", value)
+    if isinstance(value, dict):
+        return {k: redact_errors(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [redact_errors(v) for v in value]
+    return value
 
 
 def repos_to_watch(store: Store, limit: int = 30) -> list[dict]:
@@ -103,6 +147,11 @@ TEMPLATE = r"""<!doctype html>
   .tag { border:1px solid var(--line); border-radius:6px; padding:1px 6px; color:var(--muted); }
   .tag.new, .tag.soon { border-color:var(--hot); color:var(--hot); font-weight:600; }
   .tag.res { border-color:var(--accent); color:var(--accent); }
+  .tag.fy-yes { border-color:#16a34a; color:#16a34a; font-weight:600; }
+  .tag.fy-maybe { border-color:#ca8a04; color:#ca8a04; }
+  article.speaking { outline:2px solid var(--accent); outline-offset:2px; }
+  .listen { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .listen button, .listen select { font:inherit; font-size:13px; border:1px solid var(--line); border-radius:6px; background:transparent; color:inherit; padding:3px 8px; cursor:pointer; }
   .desc { color:var(--muted); margin:4px 0 0; }
   details { margin-top:6px; } summary { cursor:pointer; color:var(--accent); font-size:13px; }
   .brief { white-space:pre-wrap; margin:6px 0 0; }
@@ -115,6 +164,12 @@ TEMPLATE = r"""<!doctype html>
 <header>
   <h1>AI radar</h1>
   <div class="meta" id="meta"></div>
+  <div class="listen" id="listen" hidden>
+    <button id="say" title="Read the visible cards aloud (free, built into the browser)">🎧 Listen</button>
+    <button id="skip" title="Next card" hidden>⏭</button>
+    <select id="voice" aria-label="Voice"></select>
+    <select id="rate" aria-label="Speed"><option>0.9</option><option selected>1</option><option>1.15</option><option>1.3</option><option>1.5</option></select>
+  </div>
 </header>
 <div id="alerts"></div>
 <nav id="tabs"></nav>
@@ -126,11 +181,12 @@ TEMPLATE = r"""<!doctype html>
     <option value="30" selected>30 days</option>
   </select>
   <label class="meta"><input type="checkbox" id="resonant"> Mentioned by several sources</label>
+  <label class="meta"><input type="checkbox" id="forme"> For me only</label>
 </div>
 <main id="list"></main>
 <script>
 const DATA = /*__DATA__*/null;
-const state = { cat: "all", q: "", days: 30, resonant: false };
+const state = { cat: "all", q: "", days: 30, resonant: false, forme: false };
 const safeUrl = u => /^https?:\/\//i.test(String(u || "")) ? u : "#";
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const age = iso => (Date.now() - new Date(iso)) / 86400000;
@@ -148,7 +204,9 @@ function meta() {
 function alerts() {
   if (!DATA.alerts || !DATA.alerts.length) return;
   document.getElementById("alerts").innerHTML = `<div class="alerts"><strong>Alerts (7 days)</strong><ul>` +
-    DATA.alerts.slice(0, 12).map(a => `<li>${esc(a.message)}</li>`).join("") + "</ul></div>";
+    DATA.alerts.slice(0, 12).map(a => `<li>${esc(a.message)}` + ((a.links || []).length
+      ? `<br><span class="meta">${a.links.slice(0, 8).map(l => `<a href="${esc(safeUrl(l.url))}" target="_blank" rel="noopener">${esc(l.name)}</a>`).join(" · ")}</span>`
+      : "") + `</li>`).join("") + "</ul></div>";
 }
 
 function tabs() {
@@ -179,14 +237,24 @@ function itemCard(i) {
   if (s.likes) t.push(`<span class="tag">♥ ${s.likes}</span>`);
   if (s.free) t.push('<span class="tag">free</span>');
   if (s.language) t.push(`<span class="tag">${esc(s.language)}</span>`);
+  if (s.watched) t.unshift(`<span class="tag res" title="Followed by name ([repos] watch)">📌 watched</span>`);
+  if (s.network) t.unshift(`<span class="tag res" title="Published by an account you follow ([people] github)">👥 ${esc(s.network)}</span>`);
   if ((s.resonance || []).length) t.push(`<span class="tag res">${s.resonance.length} sources</span>`);
   if (s.emergence) t.push(`<span class="tag new">${esc(s.emergence)}</span>`);
   if (i.status !== "new") t.push(`<span class="tag">${esc(i.status)}</span>`);
-  const summary = briefLine(i.brief) || i.description || "";
+  const desc = (i.description || "").length >= 60 ? i.description : (s.readme || i.description || "");
+  const summary = briefLine(i.brief) || desc;
+  const fy = { ...(i.for_you || {}) };
+  const fb = /\*\*For you\*\*:\s*(Yes|Maybe|No)\b[\s—:-]*(.*)/i.exec(i.brief || "");
+  if (fb) { fy.level = fb[1].toLowerCase() === "yes" ? "yes" : fb[1].toLowerCase() === "maybe" ? "maybe" : "no"; fy.why = [fb[2].slice(0, 90)]; }
+  if (fy.level === "yes") t.unshift(`<span class="tag fy-yes" title="Matches your focus topics">For you · ${esc(fy.why.join(", "))}</span>`);
+  if (fy.level === "maybe") t.unshift(`<span class="tag fy-maybe" title="Matches one of your focus topics">Maybe for you · ${esc(fy.why.join(", "))}</span>`);
+  const verdict = fy.level === "yes" ? `For you: yes, ${fy.why.join(" and ")}.` : fy.level === "maybe" ? `Maybe for you: ${fy.why[0]}.` : "";
+  const say = [i.title.replace(/[\/_-]+/g, " "), String(summary).slice(0, 600), verdict].filter(Boolean).join(". ");
   const brief = i.brief ? `<details><summary>Full brief</summary><div class="brief">${esc(i.brief)}</div></details>` : "";
   const lab = i.lab ? `<details><summary>Lab</summary><div class="brief">${esc(i.lab)}</div></details>` : "";
   const res = (s.resonance || []).length ? ` title="Mentioned by ${esc(s.resonance.join(", "))}"` : "";
-  return `<article${res}>
+  return `<article${res} data-say="${esc(say)}">
     <div class="card-top"><span class="chip"><span class="dot" style="background:${CAT_COLOR[i.category] || "#888"}"></span>${esc(DATA.categories[i.category] || i.category)} · ${esc(i.source)}</span><span>${ago(i.first_seen)}</span></div>
     <h2><a href="${esc(safeUrl(i.url))}" target="_blank" rel="noopener">${esc(i.title)}</a></h2>
     ${summary ? `<p class="summary">${esc(summary)}</p>` : ""}${brief}${lab}
@@ -271,6 +339,7 @@ function render() {
     .filter(i => state.cat === "all" || i.category === state.cat)
     .filter(i => i.status === "starred" || age(i.first_seen) <= state.days)
     .filter(i => !state.resonant || (i.signals.resonance || []).length > 0)
+    .filter(i => !state.forme || ["yes", "maybe"].includes((i.for_you || {}).level))
     .filter(i => !q || (i.title + " " + i.description).toLowerCase().includes(q))
     .sort((a, b) => b.score - a.score);
   main.innerHTML = items.length ? items.map(itemCard).join("") : '<p class="empty">Nothing for these filters.</p>';
@@ -279,6 +348,49 @@ function render() {
 document.getElementById("q").oninput = e => { state.q = e.target.value; render(); };
 document.getElementById("period").onchange = e => { state.days = +e.target.value; render(); };
 document.getElementById("resonant").onchange = e => { state.resonant = e.target.checked; render(); };
+// --- Listen: the visible cards read aloud by the browser's own speech synthesis (free, offline) ---
+const speech = { on: false, queue: [], i: 0 };
+const sayBtn = document.getElementById("say"), skipBtn = document.getElementById("skip");
+const voiceSel = document.getElementById("voice"), rateSel = document.getElementById("rate");
+function fillVoices() {
+  const vs = speechSynthesis.getVoices();
+  if (!vs.length) return;
+  const saved = localStorage.getItem("radar-voice");
+  const best = vs.find(v => v.name === saved) || vs.find(v => /^en/i.test(v.lang) && /natural|premium|enhanced|neural|siri/i.test(v.name))
+    || vs.find(v => /^en/i.test(v.lang)) || vs[0];
+  voiceSel.innerHTML = vs.map(v => `<option${v === best ? " selected" : ""}>${esc(v.name)}</option>`).join("");
+}
+function stopSpeech() {
+  speech.on = false; speech.cur = null; speechSynthesis.cancel();
+  document.querySelectorAll("article.speaking").forEach(a => a.classList.remove("speaking"));
+  sayBtn.textContent = "🎧 Listen"; skipBtn.hidden = true;
+}
+function nextCard() {
+  if (!speech.on || speech.i >= speech.queue.length) return stopSpeech();
+  const a = speech.queue[speech.i++];
+  document.querySelectorAll("article.speaking").forEach(x => x.classList.remove("speaking"));
+  a.classList.add("speaking"); a.scrollIntoView({ behavior: "smooth", block: "center" });
+  const u = new SpeechSynthesisUtterance(a.dataset.say);
+  const v = speechSynthesis.getVoices().find(x => x.name === voiceSel.value);
+  if (v) { u.voice = v; u.lang = v.lang; }
+  u.rate = Number(rateSel.value) || 1;
+  speech.cur = u;  // a cancelled utterance may fire onend or onerror: only the current one moves on
+  u.onend = u.onerror = () => { if (speech.cur === u) nextCard(); };
+  speechSynthesis.speak(u);
+}
+if ("speechSynthesis" in window) {
+  document.getElementById("listen").hidden = false;
+  fillVoices(); speechSynthesis.onvoiceschanged = fillVoices;
+  voiceSel.onchange = () => localStorage.setItem("radar-voice", voiceSel.value);
+  sayBtn.onclick = () => {
+    if (speech.on) return stopSpeech();
+    speech.queue = [...document.querySelectorAll("#list article[data-say]")];
+    if (!speech.queue.length) return;
+    speech.i = 0; speech.on = true; sayBtn.textContent = "■ Stop"; skipBtn.hidden = false; nextCard();
+  };
+  skipBtn.onclick = () => { speech.cur = null; speechSynthesis.cancel(); nextCard(); };
+}
+document.getElementById("forme").onchange = e => { state.forme = e.target.checked; render(); };
 meta(); alerts(); tabs(); render();
 </script>
 </body>

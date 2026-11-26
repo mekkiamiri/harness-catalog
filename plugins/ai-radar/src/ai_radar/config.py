@@ -14,12 +14,26 @@ DEFAULT_FEEDS = {
     "TLDR AI": "https://tldr.tech/api/rss/ai",
     "Simon Willison": "https://simonwillison.net/atom/everything/",
     "Hacker News (AI, 50+ points)": "https://hnrss.org/newest?q=AI+OR+LLM+OR+MCP+OR+agent&points=50",
+    # Authors announce their own tools here long before newsletters (or never reach 50 points).
+    "Show HN (AI, 3+ points)": "https://hnrss.org/show?q=AI+OR+LLM+OR+agent+OR+agents+OR+Claude+OR+MCP+OR+Codex&points=3",
 }
 
 DEFAULT_GITHUB_TOPICS = [
     "mcp", "mcp-server", "ai-agents", "agent", "llm", "claude-code", "agent-skills", "rag", "ai",
 ]
 DEFAULT_GITHUB_KEYWORDS = ["mcp", "agent", "claude", "llm", "skills"]
+# GitHub Trending pages read on top of the all-languages one (AI repos only are kept).
+DEFAULT_TRENDING_LANGUAGES = ["java", "kotlin", "python", "typescript", "go", "rust"]
+# Maven artifacts (groupId:artifactId) whose new releases become items.
+DEFAULT_MAVEN_WATCH = [
+    "org.springframework.ai:spring-ai-bom",
+    "dev.langchain4j:langchain4j",
+    "com.google.adk:google-adk",
+    "io.modelcontextprotocol.sdk:mcp",
+    "com.anthropic:anthropic-java",
+    "io.github.a2asdk:a2a-java-sdk-client",
+    "org.springaicommunity:spring-ai-a2a-server-autoconfigure",
+]
 
 # Events (opt-in): generic defaults. Region-specific lists live in examples/config-*.toml.
 DEFAULT_EVENT_COUNTRIES: list[str] = []  # empty = every country
@@ -45,6 +59,10 @@ retention_days = 30
 github_min_stars = 50
 # github_topics = ["mcp", "ai-agents", "llm", "claude-code"]
 # github_keywords = ["mcp", "agent", "claude", "llm", "skills"]
+# GitHub Trending (daily and weekly) is read for all languages plus these ones; [] = all languages only.
+# trending_languages = ["java", "kotlin", "python", "typescript", "go", "rust"]
+# Maven artifacts whose new releases are reported (groupId:artifactId); [] = off.
+# maven_watch = ["org.springframework.ai:spring-ai-bom", "dev.langchain4j:langchain4j"]
 # GitHub token: GITHUB_TOKEN or AI_RADAR_GITHUB_TOKEN environment variable (never in this file).
 # Without a token GitHub allows 10 searches per minute: collection just waits, it is slower.
 
@@ -54,6 +72,13 @@ notify = "auto"
 [repos]
 # Topics you want to contribute to: matching repos get a bonus in the Repos tab.
 # focus = ["java", "spring", "mcp", "agents"]
+# Repos you want in the Repos tab whatever their age or growth (owner/name), e.g. to contribute to them.
+# watch = ["conductor-oss/conductor"]
+
+[people]
+# GitHub accounts or organizations you follow (colleagues, teams): their new or updated repos always show up,
+# even with zero stars, with a score bonus. Example: github = ["octocat", "my-company"]
+# github = []
 
 [sync]
 # Optional: a local clone of YOUR OWN private git repository. ai-radar then syncs your state there
@@ -106,6 +131,8 @@ class Config:
     github_min_stars: int = 50
     github_topics: list[str] = field(default_factory=lambda: list(DEFAULT_GITHUB_TOPICS))
     github_keywords: list[str] = field(default_factory=lambda: list(DEFAULT_GITHUB_KEYWORDS))
+    trending_languages: list[str] = field(default_factory=lambda: list(DEFAULT_TRENDING_LANGUAGES))
+    maven_watch: list[str] = field(default_factory=lambda: list(DEFAULT_MAVEN_WATCH))
     feeds: dict[str, str | dict] = field(default_factory=lambda: dict(DEFAULT_FEEDS))
     export_markdown: str = ""
     github_token: str | None = None
@@ -122,6 +149,8 @@ class Config:
     ntfy_topic: str = ""
     ntfy_server: str = "https://ntfy.sh"
     repos_focus: list[str] = field(default_factory=list)
+    people: list[str] = field(default_factory=list)
+    repos_watch: list[str] = field(default_factory=list)
     memory_home: str = ""
     events_enabled: bool = False
     meetup_enabled: bool = False
@@ -167,8 +196,12 @@ def load_config() -> Config:
     cfg.github_min_stars = int(data.get("github_min_stars", cfg.github_min_stars))
     cfg.github_topics = list(data.get("github_topics", cfg.github_topics))
     cfg.github_keywords = list(data.get("github_keywords", cfg.github_keywords))
+    cfg.trending_languages = [str(x).strip().lower() for x in data.get("trending_languages", cfg.trending_languages)]
+    cfg.maven_watch = [str(x).strip() for x in data.get("maven_watch", cfg.maven_watch)]
     cfg.notify = os.environ.get("AI_RADAR_NOTIFY") or data.get("notify", cfg.notify)
     cfg.repos_focus = list(data.get("repos", {}).get("focus", []))
+    cfg.repos_watch = [str(x).strip() for x in data.get("repos", {}).get("watch", []) if "/" in str(x)]
+    cfg.people = [str(x).strip() for x in data.get("people", {}).get("github", []) if str(x).strip()]
     cfg.memory_home = os.environ.get("HARNESS_MEMORY_HOME") or data.get("sync", {}).get("memory_home", "")
     phone = data.get("phone", {})
     cfg.ntfy_topic = os.environ.get("AI_RADAR_NTFY_TOPIC") or phone.get("ntfy_topic", "")

@@ -75,6 +75,13 @@ def _collect(cfg: Config, store: Store, sources: list[str] | None = None) -> dic
         report["sources"][name] = {"received": len(items), "new": new}
         report["new"] += new
         report["seen"] += len(items)
+    if not sources or "github" in sources or "github_trending" in sources:
+        try:  # repos with no real description: first paragraph of their README
+            from .describe import enrich_descriptions
+            report["descriptions"] = enrich_descriptions(cfg, store)
+        except Exception as e:
+            store.conn.rollback()
+            report["errors"]["descriptions"] = str(e)[:300]
     if not sources or "repos" in sources:
         try:
             report["repos"] = repos.enrich(cfg, store)

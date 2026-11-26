@@ -24,6 +24,7 @@ The MCP server `ai-radar` collects and ranks without any LLM. You judge, summari
    ```
    **What it is**: one concrete sentence.
    **Why it matters**: what changes, for whom; compare with what the user already knows (profile).
+   **For you**: Yes / Maybe / No — one or two sentences tied to the profile (the dashboard shows this verdict).
    **Key ideas**: 3 to 5 bullets that carry the substance, so reading the source is optional.
    **Sources**: the item link, plus docs/paper links you used.
    **Lab**: yes/no — if yes, one line on what to build and the target level.

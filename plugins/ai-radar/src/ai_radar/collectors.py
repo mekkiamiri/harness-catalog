@@ -155,6 +155,7 @@ def github_repos(cfg: Config) -> list[dict]:
     items = []
     # Without a token the users API allows 60 calls/hour: check only the most starred owners.
     max_checks = 200 if cfg.github_token else 40
+    seen = {n: r for n, r in seen.items() if not looks_like_lure(n, r.get("description"))}
     for name, r in drop_lure_accounts(filter_spam(seen), headers, max_checks).items():
         created = r["created_at"]
         age = max(1.0, (datetime.now(timezone.utc) - _parse_iso(created)).total_seconds() / 86400)
@@ -177,6 +178,25 @@ def github_repos(cfg: Config) -> list[dict]:
             }
         )
     return items
+
+
+_LURE_WORDS = re.compile(
+    r"\b(crack(ed|s)?|keygen|activator|activation key|serial (key|number)|licen[cs]e key|product key|"
+    r"full version|free download|pre-?activated|repack|nulled|warez|alternative access|"
+    r"powershell (quick )?install|download the (exe|zip|installer))\b", re.I)
+_LURE_NAME = re.compile(r"\b(keygen|activator|warez|nulled)\b", re.I)  # "cracked" alone is a real repo name
+_ON_WINDOWS = re.compile(r"\bon windows 1[01]\b", re.I)
+
+
+def looks_like_lure(name: str, description: str | None) -> bool:
+    """Malware lures dressed as software downloads: "Adobe Acrobat Pro - ... on Windows 10/11" in a
+    "-win" repo, cracks, keygens, "alternative access" to paid AI tools. GitHub deletes them days later."""
+    desc = description or ""
+    if _LURE_WORDS.search(desc) or _LURE_NAME.search(name.replace("-", " ")):
+        return True
+    repo = name.split("/")[-1].lower()
+    product_pitch = re.match(r"^[^:]{3,60} - ", desc) is not None
+    return bool(_ON_WINDOWS.search(desc)) and (repo.endswith(("-win", "-windows")) or product_pitch)
 
 
 def filter_spam(repos: dict[str, dict]) -> dict[str, dict]:
@@ -373,8 +393,186 @@ def rss_feeds(cfg: Config) -> list[dict]:
 
 _LAST_REDDIT = 0.0
 
+
+# --- Tools: established repos that accelerate (GitHub Trending) --------------
+# The search above only sees repos created inside the window. A repo created months ago that
+# suddenly takes off (plannotator: 11 months old, #1 of the week) only shows up here.
+TRENDING_PERIODS = {"daily": 1, "weekly": 7}
+TRENDING_AI_KEYWORDS = [
+    "ai", "llm", "llms", "agent", "agents", "agentic", "mcp", "claude", "claude code", "codex", "gpt",
+    "openai", "anthropic", "gemini", "copilot", "rag", "skills", "prompt", "prompts", "chatbot",
+    "language model", "inference", "embeddings", "transformers", "diffusion", "fine tuning",
+    "machine learning", "deep learning", "coding agent", "vibe coding",
+]
+_TRENDING_ROW = re.compile(r'<article class="Box-row">(.*?)</article>', re.S)
+
+
+def _int(text: str) -> int:
+    digits = re.sub(r"[^\d]", "", text or "")
+    return int(digits) if digits else 0
+
+
+def parse_trending(page: str) -> list[dict]:
+    """Repos listed on a github.com/trending page, in page order."""
+    repos = []
+    for block in _TRENDING_ROW.findall(page):
+        h2 = re.search(r"<h2[^>]*>.*?href=\"/([\w.-]+/[\w.-]+)\"", block, re.S)
+        if not h2:
+            continue
+        name = h2.group(1)
+        desc = re.search(r'<p class="col-9[^"]*">(.*?)</p>', block, re.S)
+        lang = re.search(r'itemprop="programmingLanguage">([^<]+)<', block)
+        stars = re.search(r'href="/' + re.escape(name) + r'/stargazers"[^>]*>.*?</svg>\s*([\d,]+)', block, re.S)
+        period = re.search(r"([\d,]+)\s+stars?\s+(?:today|this week|this month)", block)
+        repos.append({
+            "full_name": name,
+            "description": clean(desc.group(1)) if desc else "",
+            "language": lang.group(1).strip() if lang else None,
+            "stars": _int(stars.group(1)) if stars else 0,
+            "period_stars": _int(period.group(1)) if period else 0,
+        })
+    return repos
+
+
+def github_trending(cfg: Config) -> list[dict]:
+    # _matches turns "-" and "_" into spaces in the text: do the same in the keywords.
+    keywords = sorted({re.sub(r"[-_]+", " ", k.lower()).strip()
+                       for k in TRENDING_AI_KEYWORDS + cfg.github_keywords + cfg.github_topics})
+    best: dict[str, dict] = {}
+    errors = []
+    pages = [(lang, period, days) for lang in ["", *cfg.trending_languages] for period, days in TRENDING_PERIODS.items()]
+    parsed = 0
+    for lang, period, days in pages:
+        path = f"/{urllib.parse.quote(lang)}" if lang else ""
+        try:
+            page = http_get(f"https://github.com/trending{path}?since={period}").decode("utf-8", "replace")
+        except Exception as e:  # one failing page must not lose the others
+            errors.append(f"{lang or 'all'} {period}: {e}")
+            continue
+        rows = parse_trending(page)
+        parsed += len(rows)
+        for r in rows:
+            text = re.sub(r"[/_-]+", " ", f"{r['full_name']} {r['description']}")
+            if not _matches(text, keywords) or looks_like_lure(r["full_name"], r["description"]):
+                continue
+            rate = round(r["period_stars"] / days, 1)
+            key = r["full_name"].lower()
+            if key not in best or rate > best[key]["signals"]["stars_per_day"]:
+                best[key] = {
+                    "id": f"repo:{key}",
+                    "category": "tool",
+                    "title": r["full_name"],
+                    "url": safe_url(f"https://github.com/{r['full_name']}"),
+                    "source": "GitHub Trending",
+                    "merge_signals": True,
+                    "description": r["description"],
+                    # Trending is a "now" signal: date it today so freshness reflects the surge.
+                    "published_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                    "signals": {
+                        "stars": r["stars"],
+                        "stars_per_day": rate,
+                        "trending": f"{period} {lang}".strip(),
+                        "language": r["language"],
+                    },
+                }
+    if len(errors) == len(pages):
+        raise RuntimeError("; ".join(errors[:3]))
+    if parsed == 0:  # pages fetched but nothing recognized: GitHub changed its markup
+        raise RuntimeError("GitHub Trending: no repository found in the pages (markup changed?)")
+    return list(best.values())
+
+
+# --- Tools: new releases of watched Maven artifacts --------------------------
+def maven_releases(cfg: Config) -> list[dict]:
+    """A release of a library you use (Spring AI, LangChain4j, ADK...) published inside the window."""
+    since = datetime.now(timezone.utc) - timedelta(days=cfg.window_days)
+    items, errors = [], []
+    valid = [c.partition(":")[::2] for c in cfg.maven_watch]
+    valid = [(g, a) for g, a in valid if re.fullmatch(r"[\w.-]+", g) and re.fullmatch(r"[\w.-]+", a)]
+    for group, artifact in valid:
+        coord = f"{group}:{artifact}"
+        url = f"https://repo1.maven.org/maven2/{group.replace('.', '/')}/{artifact}/maven-metadata.xml"
+        try:
+            root = ET.fromstring(http_get(url))
+        except Exception as e:  # one failing artifact must not lose the others
+            errors.append(f"{coord}: {e}")
+            continue
+        release = (root.findtext("versioning/release") or root.findtext("versioning/latest") or "").strip()
+        updated = (root.findtext("versioning/lastUpdated") or "").strip()
+        try:
+            when = datetime.strptime(updated, "%Y%m%d%H%M%S").replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        if not release or when < since:
+            continue
+        items.append({
+            "id": f"maven:{group}:{artifact}:{release}",
+            "category": "tool",
+            "title": f"{group}:{artifact} {release}",
+            "url": safe_url(f"https://central.sonatype.com/artifact/{group}/{artifact}/{release}"),
+            "source": "Maven Central",
+            "description": f"New release {release} of {group}:{artifact} on Maven Central.",
+            "published_at": when.isoformat(timespec="seconds"),
+            "signals": {"release": release},
+        })
+    if valid and len(errors) == len(valid):
+        raise RuntimeError("; ".join(errors[:3]))
+    return items
+
+
+# --- Tools: what the people you follow publish (any number of stars) ---------
+def network_repos(cfg: Config) -> list[dict]:
+    """Repos created or pushed inside the window by the accounts of [people] github: a colleague's
+    0-star project never trends, so it is followed by name."""
+    if not cfg.people:
+        return []
+    headers = {"Accept": "application/vnd.github+json"}
+    if cfg.github_token:
+        headers["Authorization"] = f"Bearer {cfg.github_token}"
+    # a colleague's project is worth seeing for weeks, not only inside the 14-day news window
+    since = datetime.now(timezone.utc) - timedelta(days=max(cfg.window_days, 90))
+    items, errors = [], []
+    for login in cfg.people:
+        if not re.fullmatch(r"[A-Za-z0-9-]{1,39}", login):
+            continue
+        url = f"https://api.github.com/users/{login}/repos?sort=pushed&per_page=30"
+        try:
+            repos = json.loads(http_get(url, headers))
+        except Exception as e:  # one failing account must not lose the others
+            errors.append(f"{login}: {e}")
+            continue
+        for r in repos:
+            pushed = _parse_iso(r.get("pushed_at") or r.get("created_at") or "1970-01-01T00:00:00Z")
+            if r.get("fork") or pushed < since:
+                continue
+            age = max(1.0, (datetime.now(timezone.utc) - _parse_iso(r["created_at"])).total_seconds() / 86400)
+            items.append({
+                "id": f"repo:{r['full_name'].lower()}",
+                "category": "tool",
+                "title": r["full_name"],
+                "url": safe_url(r["html_url"]),
+                "source": "Your network",
+                "merge_signals": True,
+                "description": clean(r.get("description")),
+                "published_at": pushed.isoformat(timespec="seconds"),
+                "signals": {
+                    "stars": r.get("stargazers_count", 0),
+                    "stars_per_day": round(r.get("stargazers_count", 0) / age, 1),
+                    "topics": (r.get("topics") or [])[:8],
+                    "language": r.get("language"),
+                    "network": login,
+                },
+            })
+    if errors and not items and len(errors) == len(cfg.people):
+        raise RuntimeError("; ".join(errors[:3]))
+    return items
+
+
 COLLECTORS = {
     "github": github_repos,
+    "network": network_repos,
+    "github_trending": github_trending,
+    "maven": maven_releases,
     "openrouter": openrouter_models,
     "huggingface_models": huggingface_models,
     "huggingface_papers": huggingface_papers,

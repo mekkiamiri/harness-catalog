@@ -64,7 +64,21 @@ CREATE TABLE IF NOT EXISTS runs (
 """
 
 ITEM_FIELDS = {"status", "brief", "lab", "relevant"}
-PRESERVED_SIGNALS = ("contrib", "contrib_score", "mentioned_by")
+PRESERVED_SIGNALS = ("contrib", "contrib_score", "mentioned_by", "readme", "watched")
+
+
+def _later(a: str | None, b: str | None) -> str | None:
+    """The later of two ISO dates (either may be missing or malformed)."""
+    def parse(s):
+        try:
+            d = datetime.fromisoformat((s or "").replace("Z", "+00:00"))
+            return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+        except ValueError:
+            return None
+    da, db = parse(a), parse(b)
+    if da is None or db is None:
+        return a if db is None else b
+    return b if db > da else a
 
 
 def now() -> datetime:
@@ -112,13 +126,24 @@ class Store:
     def upsert(self, item: dict) -> bool:
         """Insert or update an item. Returns True when it is new."""
         t = iso(now())
-        exists = self.conn.execute("SELECT signals FROM items WHERE id = ?", (item["id"],)).fetchone()
+        exists = self.conn.execute(
+            "SELECT signals, published_at, last_seen FROM items WHERE id = ?", (item["id"],)).fetchone()
         new_signals = dict(item.get("signals", {}))
+        published = exists["published_at"] if exists is not None else item.get("published_at")
         if exists is not None:  # keep signals computed by later steps (contribution analysis, newsletter mentions)
             old = json.loads(exists["signals"] or "{}")
             for key in PRESERVED_SIGNALS:
                 if key in old and key not in new_signals:
                     new_signals[key] = old[key]
+            if item.get("merge_signals"):
+                # A second view of the same item (GitHub Trending after the GitHub search): add to what
+                # is known instead of replacing it, keep today's best star rate, move the date forward.
+                fresh = (exists["last_seen"] or "")[:10] == t[:10]
+                rate = new_signals.get("stars_per_day", 0)
+                new_signals = {**old, **new_signals}
+                if fresh and old.get("stars_per_day", 0) > rate:
+                    new_signals["stars_per_day"] = old["stars_per_day"]
+                published = _later(published, item.get("published_at"))
         signals = json.dumps(new_signals, ensure_ascii=False)
         if exists is None:
             self.conn.execute(
@@ -129,8 +154,9 @@ class Store:
             )
             return True
         self.conn.execute(
-            "UPDATE items SET title = ?, url = ?, description = ?, last_seen = ?, signals = ? WHERE id = ?",
-            (item["title"], item["url"], item.get("description", ""), t, signals, item["id"]),
+            "UPDATE items SET title = ?, url = ?, description = ?, last_seen = ?, signals = ?, published_at = ?"
+            " WHERE id = ?",
+            (item["title"], item["url"], item.get("description", ""), t, signals, published, item["id"]),
         )
         return False
 

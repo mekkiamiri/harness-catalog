@@ -1,6 +1,6 @@
 {
   "name": "ai-radar",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Know about new AI tools, models and papers the day they ship. A guided daily session with dense summaries, adaptive labs, language trends, conferences and CFP alerts.",
   "author": { "name": "Mekki Amiri", "url": "https://github.com/mekkiamiri" },
   "homepage": "https://github.com/mekkiamiri/harness-catalog/tree/main/plugins/ai-radar",
