@@ -24,18 +24,59 @@ def dashboard(cfg: Config, store: Store) -> Path:
         it["for_you"] = for_you(it, cfg.repos_focus)
     data = {
         "generated_at": datetime.now().astimezone().isoformat(timespec="minutes"),
-        "last_run": store.last_run(),
+        "last_run": redact_errors(store.last_run()),
         "categories": CATEGORIES,
         "items": items,
         "events": store.events(days_ahead=365),
         "repos": repos_to_watch(store),
-        "alerts": store.recent_notifications(days=7),
+        "alerts": alerts_with_links(store),
     }
     payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
     html = TEMPLATE.replace("/*__DATA__*/null", payload)
     cfg.dashboard_path.parent.mkdir(parents=True, exist_ok=True)
     cfg.dashboard_path.write_text(html, encoding="utf-8")
     return cfg.dashboard_path
+
+
+def event_id_of(key: str) -> str | None:
+    """Event behind an alert key: "online:meetup:<url>" / "meetup:<url>:online" -> "meetup:<url>",
+    "conf:<slug>:<what>:<date>" -> "conf:<slug>"."""
+    if key.startswith("online:"):
+        key = key[len("online:"):]
+    if key.startswith("meetup:"):
+        return key[: -len(":online")] if key.endswith(":online") else key
+    if key.startswith("conf:"):
+        return ":".join(key.split(":")[:2])
+    return None
+
+
+def alerts_with_links(store: Store, days: int = 7) -> list[dict]:
+    """Recent alerts, one line per message, each with links to the events it is about."""
+    rows = store.conn.execute("SELECT id, name, url, cfp_url FROM events").fetchall()
+    events = {r["id"]: dict(r) for r in rows}
+    out: dict[str, dict] = {}
+    for n in store.recent_notifications(days=days):
+        a = out.setdefault(n["message"], {"message": n["message"], "sent_at": n["sent_at"], "links": []})
+        e = events.get(event_id_of(n["key"]) or "")
+        if not e:
+            continue
+        for label, url in ((e["name"], e["url"]), ("CFP", e.get("cfp_url") or "")):
+            if url.startswith(("https://", "http://")) and url not in [l["url"] for l in a["links"]]:
+                a["links"].append({"name": label if label != "CFP" else f"CFP {e['name']}", "url": url})
+    return list(out.values())
+
+
+def redact_errors(value):
+    """Drop the free text of HTTP errors ("HTTP Error 403: <reason>"): a company proxy puts its own name
+    and policy there, and the dashboard may be copied to a repository or a site."""
+    import re
+    if isinstance(value, str):
+        return re.sub(r"(HTTP Error \d{3})(: [^;\n]*)?", r"\1", value)
+    if isinstance(value, dict):
+        return {k: redact_errors(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [redact_errors(v) for v in value]
+    return value
 
 
 def repos_to_watch(store: Store, limit: int = 30) -> list[dict]:
@@ -163,7 +204,9 @@ function meta() {
 function alerts() {
   if (!DATA.alerts || !DATA.alerts.length) return;
   document.getElementById("alerts").innerHTML = `<div class="alerts"><strong>Alerts (7 days)</strong><ul>` +
-    DATA.alerts.slice(0, 12).map(a => `<li>${esc(a.message)}</li>`).join("") + "</ul></div>";
+    DATA.alerts.slice(0, 12).map(a => `<li>${esc(a.message)}` + ((a.links || []).length
+      ? `<br><span class="meta">${a.links.slice(0, 8).map(l => `<a href="${esc(safeUrl(l.url))}" target="_blank" rel="noopener">${esc(l.name)}</a>`).join(" · ")}</span>`
+      : "") + `</li>`).join("") + "</ul></div>";
 }
 
 function tabs() {

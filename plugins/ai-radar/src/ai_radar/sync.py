@@ -8,6 +8,7 @@ ai-radar then reads and writes only `<memory>/ai-radar/`:
     profile.md                 copied both ways (config.toml is NOT synced: it holds per-computer paths)
     weekly/YYYY-Www.md, cfp.json
     daily/YYYY-MM-DD.json      next morning's digest, written by `run --deliver`; a scheduled workflow sends it
+    dashboard/index.html       copy of the dashboard (e.g. to publish it on a private site and open it on a phone)
 
 The radar database itself stays local: it is rebuilt by the collection.
 """
@@ -177,6 +178,9 @@ def sync_files(cfg: Config, folder: Path, last: dict) -> dict:
         last[name] = _sha(local)
     _copy_tree(cfg.weekly_dir, folder / "weekly")
     _copy_tree(cfg.home / "daily", folder / "daily")
+    if cfg.dashboard_path.exists():  # read on the phone through the private repository's own site, if it has one
+        (folder / "dashboard").mkdir(parents=True, exist_ok=True)
+        shutil.copy2(cfg.dashboard_path, folder / "dashboard" / "index.html")
     if cfg.cfp_path.exists():
         shutil.copy2(cfg.cfp_path, folder / "cfp.json")
     return out

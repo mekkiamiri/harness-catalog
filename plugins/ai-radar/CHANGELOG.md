@@ -11,6 +11,8 @@
 - "For you" verdict on every card (yes / maybe / no from `[repos] focus`, or the **For you** line of a brief), and a "For me only" filter.
 - 🎧 Listen: the dashboard reads the visible cards aloud with the browser's own speech synthesis (free, offline, voice and speed selectable).
 - `[people] github`: accounts you follow (colleagues, teams). Their repos created or pushed in the last 90 days always show up, even with zero stars, with a +25 score bonus and a 👥 tag.
+- Alerts on the dashboard link to their events (and CFP pages); a grouped alert is shown once.
+- `sync` also copies the dashboard to the private repository (`ai-radar/dashboard/index.html`), so it can be published on a private site and opened on a phone. HTTP error reasons are dropped from the dashboard (a company proxy writes its own name there).
 - New feed: Show HN about AI from 3 points, where authors announce their tools before any newsletter.
 
 ## 0.1.1 (2026-11-17)
