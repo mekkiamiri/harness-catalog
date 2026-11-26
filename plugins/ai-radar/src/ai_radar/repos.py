@@ -93,17 +93,41 @@ def enrich(cfg: Config, store: Store) -> dict:
         added += 1
     store.commit()
 
-    # Contribution signals for the best recent repos (and every mentioned one).
+    # Repos followed by name ([repos] watch): always present, whatever their age or growth.
+    watched = 0
+    for full in cfg.repos_watch:
+        item_id = f"repo:{full.lower()}"
+        existing = store.get(item_id)
+        if existing and existing["last_seen"] >= iso(now() - timedelta(days=1)):
+            if not existing["signals"].get("watched"):
+                sig = existing["signals"] | {"watched": True}
+                store.conn.execute("UPDATE items SET signals = ? WHERE id = ?", (json.dumps(sig), item_id))
+            continue
+        try:
+            r = http_json(f"https://api.github.com/repos/{full}", headers)
+        except Exception:
+            continue
+        it = _repo_item(r, (existing or {}).get("signals", {}).get("mentioned_by", []))
+        it["source"], it["merge_signals"] = "Watched repo", True
+        it["published_at"] = r.get("pushed_at") or it["published_at"]  # fresh while the project is active
+        it["signals"]["watched"] = True
+        store.upsert(it)
+        watched += 1
+    store.commit()
+
+    # Contribution signals for the best recent repos (and every mentioned or watched one).
     rows = store.conn.execute(
-        "SELECT id, title, signals, score FROM items WHERE id LIKE 'repo:%' AND status != 'ignored' AND last_seen >= ?"
-        " ORDER BY score DESC LIMIT 80", (iso(now() - timedelta(days=14)),)).fetchall()
+        "SELECT id, title, signals, score FROM items WHERE id LIKE 'repo:%' AND status != 'ignored'"
+        " AND (last_seen >= ? OR signals LIKE '%\"watched\": true%') ORDER BY score DESC LIMIT 80",
+        (iso(now() - timedelta(days=14)),)).fetchall()
     focus = [f.lower() for f in cfg.repos_focus]
     budget = 40 if cfg.github_token else 6  # 2 calls per repo
 
     def priority(row) -> tuple:
         sig = json.loads(row["signals"] or "{}")
         text = " ".join([row["title"], " ".join(sig.get("topics", [])), sig.get("language") or ""]).lower()
-        return (-len(sig.get("mentioned_by") or []), -int(any(f in text for f in focus)), -(row["score"] or 0))
+        return (-int(bool(sig.get("watched"))), -len(sig.get("mentioned_by") or []),
+                -int(any(f in text for f in focus)), -(row["score"] or 0))
 
     rows = sorted(rows, key=priority)
     checked = 0
@@ -138,7 +162,7 @@ def enrich(cfg: Config, store: Store) -> dict:
         sig["contrib_score"] = contrib_score(sig)
         store.conn.execute("UPDATE items SET signals = ? WHERE id = ?", (json.dumps(sig, ensure_ascii=False), row["id"]))
     store.commit()
-    return {"added_from_newsletters": added, "contrib_checked": checked}
+    return {"added_from_newsletters": added, "watched": watched, "contrib_checked": checked}
 
 
 def contrib_score(sig: dict) -> float:

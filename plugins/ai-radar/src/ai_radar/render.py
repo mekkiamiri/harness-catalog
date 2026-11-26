@@ -237,6 +237,7 @@ function itemCard(i) {
   if (s.likes) t.push(`<span class="tag">♥ ${s.likes}</span>`);
   if (s.free) t.push('<span class="tag">free</span>');
   if (s.language) t.push(`<span class="tag">${esc(s.language)}</span>`);
+  if (s.watched) t.unshift(`<span class="tag res" title="Followed by name ([repos] watch)">📌 watched</span>`);
   if (s.network) t.unshift(`<span class="tag res" title="Published by an account you follow ([people] github)">👥 ${esc(s.network)}</span>`);
   if ((s.resonance || []).length) t.push(`<span class="tag res">${s.resonance.length} sources</span>`);
   if (s.emergence) t.push(`<span class="tag new">${esc(s.emergence)}</span>`);

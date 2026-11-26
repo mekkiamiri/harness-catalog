@@ -72,6 +72,8 @@ notify = "auto"
 [repos]
 # Topics you want to contribute to: matching repos get a bonus in the Repos tab.
 # focus = ["java", "spring", "mcp", "agents"]
+# Repos you want in the Repos tab whatever their age or growth (owner/name), e.g. to contribute to them.
+# watch = ["conductor-oss/conductor"]
 
 [people]
 # GitHub accounts or organizations you follow (colleagues, teams): their new or updated repos always show up,
@@ -148,6 +150,7 @@ class Config:
     ntfy_server: str = "https://ntfy.sh"
     repos_focus: list[str] = field(default_factory=list)
     people: list[str] = field(default_factory=list)
+    repos_watch: list[str] = field(default_factory=list)
     memory_home: str = ""
     events_enabled: bool = False
     meetup_enabled: bool = False
@@ -197,6 +200,7 @@ def load_config() -> Config:
     cfg.maven_watch = [str(x).strip() for x in data.get("maven_watch", cfg.maven_watch)]
     cfg.notify = os.environ.get("AI_RADAR_NOTIFY") or data.get("notify", cfg.notify)
     cfg.repos_focus = list(data.get("repos", {}).get("focus", []))
+    cfg.repos_watch = [str(x).strip() for x in data.get("repos", {}).get("watch", []) if "/" in str(x)]
     cfg.people = [str(x).strip() for x in data.get("people", {}).get("github", []) if str(x).strip()]
     cfg.memory_home = os.environ.get("HARNESS_MEMORY_HOME") or data.get("sync", {}).get("memory_home", "")
     phone = data.get("phone", {})
